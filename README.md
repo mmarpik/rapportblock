@@ -4,13 +4,17 @@ Fickblock i mobilen för hemvärnets vanligaste rapporter och instruktioner. Sna
 
 **Öppna:** https://mmarpik.github.io/rapportblock/
 
+<img src="qr.png" alt="QR-kod till https://mmarpik.github.io/rapportblock/" width="240">
+
 ## Innehåll
+
+FORS, BSÖ och 7S/8S ligger som knappar. Övriga finns i menyn **Fler**.
 
 | Grupp | Formulär |
 |---|---|
 | Rapporter (sänds på radio) | FORS, 7S/8S, PEDARS |
 | Instruktioner (sägs till soldaterna) | OBO, ERER/EKER, EOBUSARE, BSÖ, OBSLÖSA |
-| Kontroll | 8F, detaljskiss för sensorer |
+| Kontroll | 8F |
 
 ## Installera på telefonen
 

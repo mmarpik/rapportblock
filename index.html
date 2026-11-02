@@ -80,14 +80,20 @@ header.top {
 }
 :root[data-night="on"] #nightBtn { color: var(--fg); border-color: var(--fg); }
 
-nav.tabs { display: flex; gap: 6px; overflow-x: auto; scrollbar-width: none; align-items: stretch; }
+nav.tabs { display: flex; gap: 6px; align-items: stretch; }
 nav.tabs button {
   flex: 0 0 auto; font: 700 18px var(--font-display); letter-spacing: .05em;
   background: none; color: var(--muted); border: 1px solid var(--line); border-radius: 6px;
   padding: 6px 12px; cursor: pointer; white-space: nowrap;
 }
 nav.tabs button[aria-selected="true"] { background: var(--accent); color: var(--accent-fg); border-color: var(--accent); }
-nav.tabs .sep { flex: 0 0 1px; background: var(--line); margin-inline: 2px; }
+nav.tabs select {
+  flex: 1 1 0; min-width: 0; font: 700 18px var(--font-display); letter-spacing: .05em;
+  background: none; color: var(--muted); border: 1px solid var(--line); border-radius: 6px;
+  padding: 6px 8px; cursor: pointer;
+}
+nav.tabs select.on { background: var(--accent); color: var(--accent-fg); border-color: var(--accent); }
+nav.tabs select option { background: var(--surface); color: var(--fg); }
 
 .settings { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; padding-block: 12px; }
 .settings label { display: flex; flex-direction: column; gap: 4px; font-size: 13px; color: var(--muted); }
@@ -394,24 +400,10 @@ const FORMS = [
       ['3D', 'Observation och eldberedskap även i höjdled, främst i bebyggelse.'],
     ].map(([label, hint], i) => ({ key: i < 8 ? 'F' : '3D', small: i === 8, label, say: label, hint, chips: ['OK', 'Brist: ', 'Ej aktuellt'] })),
   },
-  {
-    id: 'Skiss', title: 'Detaljskiss', group: 'kontroll', desc: 'En per sensor (CIM 2, UMRA, PIR, kamera). Rita skissen på papper, skriv uppgifterna här.',
-    labels: true,
-    fields: [
-      { key: 'S', label: 'Sensor', say: 'Sensor', hint: 'Typ och nummer.', chips: ['UMRA ', 'PIR ', 'Kamera ', 'CIM magnetgivare ', 'Larmmina '] },
-      { key: 'U', label: 'Utlagd av', say: 'Utlagd av', hint: 'Namn och förband.', chips: ['{me}', '1 pluton'] },
-      { key: 'T', label: 'Tidsnummer', say: 'Tidsnummer', chips: ['{tnr}'] },
-      { key: 'P', label: 'Position', say: 'Position', hint: 'MGRS, 4+4 siffror.', chips: ['33V XF '] },
-      { key: 'U', label: 'Utgångspunkt', say: 'Utgångspunkt', hint: 'Ett tydligt föremål och dess koordinat.',
-        chips: ['Stora tallen', 'stenblocket', 'vägskälet', 'södra sidan vägen', 'norra sidan vägen', '33V XF '] },
-      { key: 'R', label: 'Riktning och avstånd', say: 'Riktning och avstånd', hint: 'Från utgångspunkten. Riktning i streck (6400 per varv).',
-        chips: ['Riktning ', 'streck', 'avstånd ', 'meter'] },
-      { key: 'B', label: 'Beskrivning', say: 'Beskrivning', hint: 'Var i terrängen den sitter, och marschvägen dit.',
-        chips: ['Marschväg: ', 'snubbeltråd runt ', 'utan spänn', 'kabel till '] },
-    ],
-  },
 ];
 const GROUPS = ['rapport', 'instruktion', 'kontroll'];
+const GROUP_NAMES = { rapport: 'Rapporter', instruktion: 'Instruktioner', kontroll: 'Kontroll' };
+const QUICK = ['FORS', 'BSÖ', '7S'];
 const COLORS = { gront: 'Grönt', gult: 'Gult', rott: 'Rött' };
 const EXAMPLE = {
   __example: true,
@@ -476,10 +468,15 @@ function renderTop() {
   $('setMe').value = state.me; $('setTo').value = state.to;
   document.documentElement.dataset.night = state.night ? 'on' : 'off';
   $('nightBtn').setAttribute('aria-pressed', state.night);
+  // Snabba formulär som knappar, resten i en meny.
   const tab = (id, text) => `<button role="tab" data-tab="${esc(id)}" aria-selected="${id === state.tab}">${esc(text)}</button>`;
-  $('tabs').innerHTML = GROUPS.map(g => FORMS.filter(f => f.group === g).map(f => tab(f.id, f.title)).join('')).join('<span class="sep" aria-hidden="true"></span>')
-    + '<span class="sep" aria-hidden="true"></span>' + tab('Logg', 'Logg');
-  $('tabs').querySelector('[aria-selected="true"]')?.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+  const more = FORMS.filter(f => !QUICK.includes(f.id));
+  const inMore = more.some(f => f.id === state.tab);
+  $('tabs').innerHTML = QUICK.map(id => tab(id, FORMS.find(f => f.id === id).title)).join('')
+    + `<select id="moreSel" aria-label="Fler formulär" class="${inMore ? 'on' : ''}">${inMore ? '' : '<option value="" selected>Fler …</option>'}`
+    + GROUPS.map(g => { const fs = more.filter(f => f.group === g); return fs.length ? `<optgroup label="${GROUP_NAMES[g]}">${fs.map(f =>
+        `<option value="${esc(f.id)}"${f.id === state.tab ? ' selected' : ''}>${esc(f.title)}</option>`).join('')}</optgroup>` : ''; }).join('')
+    + '</select>' + tab('Logg', 'Logg');
 }
 
 // Fältens värde som text
@@ -684,6 +681,10 @@ document.addEventListener('click', e => {
     else { b.dataset.armed = '1'; b.textContent = 'Säker?'; setTimeout(() => { if (b.isConnected) { delete b.dataset.armed; b.textContent = 'Radera'; } }, 3000); }
     return;
   }
+});
+document.addEventListener('change', e => {
+  if (e.target.id !== 'moreSel' || !e.target.value) return;
+  state.tab = e.target.value; store.set('tab', state.tab); render(); window.scrollTo(0, 0);
 });
 $('importFile').addEventListener('change', async e => {
   const f = e.target.files?.[0]; if (!f) return;
