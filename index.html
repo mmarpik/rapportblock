@@ -433,6 +433,7 @@ const EXAMPLE_PEDARS = {
 };
 const has = v => v !== undefined && v !== null && v !== '';
 const LOG_MAX = 500;
+const HOSTED = location.hostname.endsWith('github.io') || location.hostname === 'localhost';
 
 // Lagring. Allt ligger i den här webbläsaren.
 const store = {
@@ -601,6 +602,8 @@ async function exportLog() {
   if (!state.history.length) { toast('Loggen är tom.'); return; }
   const data = JSON.stringify({ app: 'rapportblock', version: 1, exported: new Date().toISOString(), me: state.me, history: state.history });
   const name = `rapportblock-${state.me.replace(/[^\wÅÄÖåäö-]/g, '')}-${tnr()}.json`;
+  // Utanför egen webbplats (till exempel förhandsvisning hos Claude) blockeras filer tyst. Kopiera i stället.
+  if (!HOSTED) { toast((await copy(data)) || copyFallback(data) ? 'Filer kan inte sparas här. Loggen är kopierad som text.' : 'Kunde inte exportera.'); return; }
   const file = new File([data], name, { type: 'application/json' });
   // Telefonens dela-meny först (spara i Filer, skicka i Signal). Annars vanlig nedladdning.
   try {
@@ -734,7 +737,7 @@ $('rCopy').addEventListener('click', async () => {
 document.addEventListener('keydown', e => { if (e.key === 'Escape' && !$('radio').hidden) closeRadio(); });
 
 // Offline: service worker när sidan ligger på en egen webbplats (GitHub Pages eller lokalt).
-if ('serviceWorker' in navigator && (location.hostname.endsWith('github.io') || location.hostname === 'localhost')) {
+if ('serviceWorker' in navigator && HOSTED) {
   navigator.serviceWorker.register('sw.js').catch(() => {});
 }
 
