@@ -1,0 +1,744 @@
+<!doctype html>
+<html lang="sv">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#3f5a2a">
+<meta name="claude:viewport-fit-sides" content="cover">
+<title>Rapportblock</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@500&display=swap">
+<style>
+/* Layout: phone-first field notebook. One column, sticky tab strip on top, sticky action bar at the bottom, letter rail down the left of each field. */
+:root {
+  --bg: #eef0e8;
+  --surface: #f9faf5;
+  --fg: #1d2219;
+  --muted: #5c6455;
+  --line: #cfd4c4;
+  --accent: #3f5a2a;
+  --accent-fg: #f3f6ee;
+  --chip: #e1e6d6;
+  --green: #2f7d3a;
+  --yellow: #a87a00;
+  --red: #b3261e;
+  --font-display: "Barlow Condensed", "Arial Narrow", sans-serif;
+  --font-body: "IBM Plex Sans", system-ui, sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #14170f; --surface: #1c2016; --fg: #e4e8da; --muted: #9aa38e; --line: #323a29;
+    --accent: #9cbc72; --accent-fg: #14170f; --chip: #283020;
+    --green: #6cc276; --yellow: #e0b23a; --red: #ff6b5e; color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #14170f; --surface: #1c2016; --fg: #e4e8da; --muted: #9aa38e; --line: #323a29;
+  --accent: #9cbc72; --accent-fg: #14170f; --chip: #283020;
+  --green: #6cc276; --yellow: #e0b23a; --red: #ff6b5e; color-scheme: dark;
+}
+/* Mörkerläge: rött ljus som bevarar mörkerseendet. Står sist så att det vinner över temat. */
+:root[data-night="on"] {
+  --bg: #000; --surface: #0a0000; --fg: #c8261c; --muted: #7a1a14; --line: #2a0805;
+  --accent: #c8261c; --accent-fg: #000; --chip: #1a0302;
+  --green: #c8261c; --yellow: #c8261c; --red: #ff3b2f; color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+html, body { background: var(--bg); }
+body {
+  margin: 0;
+  color: var(--fg);
+  font: 16px/1.45 var(--font-body);
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 0 96px;
+}
+body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-area-inset-top, 0px); z-index: 10; background: var(--bg); }
+.wrap { max-width: 640px; margin: 0 auto; }
+
+header.top {
+  position: sticky; top: env(safe-area-inset-top, 0px); z-index: 5;
+  background: var(--bg);
+  display: flex; flex-direction: column; gap: 10px;
+  padding-block: 12px 10px;
+  border-bottom: 1px solid var(--line);
+}
+.brand { display: flex; align-items: center; gap: 10px; }
+.brand h1 { font: 700 26px/1 var(--font-display); letter-spacing: .04em; text-transform: uppercase; margin: 0; flex: 1; }
+.calls {
+  font: 500 14px var(--font-mono); background: var(--chip); color: var(--fg);
+  border: 1px solid var(--line); border-radius: 6px; padding: 6px 10px; cursor: pointer;
+}
+.iconbtn {
+  font: 600 13px var(--font-body); background: none; color: var(--muted);
+  border: 1px solid var(--line); border-radius: 6px; padding: 6px 10px; cursor: pointer;
+}
+:root[data-night="on"] #nightBtn { color: var(--fg); border-color: var(--fg); }
+
+nav.tabs { display: flex; gap: 6px; overflow-x: auto; scrollbar-width: none; align-items: stretch; }
+nav.tabs button {
+  flex: 0 0 auto; font: 700 18px var(--font-display); letter-spacing: .05em;
+  background: none; color: var(--muted); border: 1px solid var(--line); border-radius: 6px;
+  padding: 6px 12px; cursor: pointer; white-space: nowrap;
+}
+nav.tabs button[aria-selected="true"] { background: var(--accent); color: var(--accent-fg); border-color: var(--accent); }
+nav.tabs .sep { flex: 0 0 1px; background: var(--line); margin-inline: 2px; }
+
+.settings { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; padding-block: 12px; }
+.settings label { display: flex; flex-direction: column; gap: 4px; font-size: 13px; color: var(--muted); }
+.settings input { font: 500 18px var(--font-mono); text-transform: uppercase; }
+
+.formhead { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; padding-block: 14px 6px; }
+.formhead h2 { font: 700 22px var(--font-display); margin: 0; letter-spacing: .03em; }
+.formhead p { margin: 0; color: var(--muted); font-size: 14px; flex-basis: 100%; }
+.pill { font: 600 12px var(--font-body); text-transform: uppercase; letter-spacing: .06em; border-radius: 99px; padding: 2px 8px; background: var(--chip); color: var(--muted); }
+.pill.example { color: var(--yellow); border: 1px solid currentColor; background: none; }
+.linkbtn { background: none; border: 0; color: var(--accent); font: 600 13px var(--font-body); cursor: pointer; padding: 0; text-decoration: underline; }
+
+.field { display: grid; grid-template-columns: 40px minmax(0, 1fr); gap: 0 12px; padding-block: 12px; border-top: 1px solid var(--line); }
+.letter { font: 700 34px/1 var(--font-display); color: var(--accent); text-align: center; padding-top: 2px; }
+.letter.small { font-size: 24px; padding-top: 6px; }
+.fbody { min-width: 0; display: flex; flex-direction: column; gap: 6px; }
+.fbody .lbl { font-weight: 600; }
+.fbody .hint { font-size: 13px; color: var(--muted); margin-top: -4px; }
+
+textarea, input[type="text"], input[type="number"] {
+  width: 100%; font: 16px/1.4 var(--font-body); color: var(--fg); background: var(--surface);
+  border: 1px solid var(--line); border-radius: 6px; padding: 8px 10px;
+}
+textarea { min-height: 64px; resize: vertical; }
+textarea:focus, input:focus, button:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+
+.chips { display: flex; gap: 6px; overflow-x: auto; padding-bottom: 2px; scrollbar-width: none; }
+.chips button {
+  flex: 0 0 auto; font: 500 14px var(--font-body); color: var(--fg); background: var(--chip);
+  border: 1px solid var(--line); border-radius: 99px; padding: 6px 12px; cursor: pointer; white-space: nowrap;
+}
+.chips button:active { background: var(--accent); color: var(--accent-fg); }
+
+.counts { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+.count { display: flex; flex-direction: column; gap: 4px; }
+.count span { font: 600 13px var(--font-mono); color: var(--muted); }
+.stepper { display: grid; grid-template-columns: 34px minmax(0, 1fr) 34px; }
+.stepper button { font: 700 18px var(--font-body); background: var(--chip); color: var(--fg); border: 1px solid var(--line); cursor: pointer; }
+.stepper button:first-child { border-radius: 6px 0 0 6px; }
+.stepper button:last-child { border-radius: 0 6px 6px 0; }
+.stepper input { border-radius: 0; text-align: center; font-family: var(--font-mono); padding: 8px 2px; -moz-appearance: textfield; }
+.stepper input::-webkit-inner-spin-button { -webkit-appearance: none; }
+
+.vrow { display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 1fr) minmax(0, 1fr) 32px; gap: 6px; align-items: end; }
+.vrow label { display: flex; flex-direction: column; gap: 2px; font-size: 12px; color: var(--muted); min-width: 0; }
+.vrow input, .vrow select { min-width: 0; width: 100%; }
+.vrow input, .vrow select { font-family: var(--font-mono); }
+.vrow select { width: 100%; font-size: 16px; color: var(--fg); background: var(--surface); border: 1px solid var(--line); border-radius: 6px; padding: 8px 4px; height: 40px; }
+.vrow input { padding: 8px 6px; height: 40px; }
+.chips .hint { align-self: center; font-size: 13px; color: var(--muted); white-space: nowrap; }
+.vrow .del { height: 40px; background: none; border: 1px solid var(--line); border-radius: 6px; color: var(--muted); cursor: pointer; }
+
+.colors { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+.colors button {
+  font: 700 17px var(--font-display); letter-spacing: .05em; text-transform: uppercase;
+  padding: 10px 4px; border-radius: 6px; cursor: pointer; background: var(--surface);
+  border: 2px solid var(--line); color: var(--muted);
+}
+.colors button[data-c="gront"][aria-pressed="true"] { border-color: var(--green); color: var(--green); }
+.colors button[data-c="gult"][aria-pressed="true"] { border-color: var(--yellow); color: var(--yellow); }
+.colors button[data-c="rott"][aria-pressed="true"] { border-color: var(--red); color: var(--red); }
+.warn { color: var(--red); font-size: 13px; font-weight: 600; }
+
+.actions {
+  position: fixed; left: 0; right: 0; bottom: 0; z-index: 6; background: var(--bg); border-top: 1px solid var(--line);
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 10px calc(10px + env(safe-area-inset-bottom, 0px));
+}
+.actions .row { max-width: 640px; margin: 0 auto; display: grid; grid-template-columns: 2fr 1fr 1fr 1fr; gap: 8px; }
+.btn {
+  font: 700 17px var(--font-display); letter-spacing: .05em; text-transform: uppercase;
+  border-radius: 6px; padding: 12px 6px; cursor: pointer; border: 1px solid var(--line);
+  background: var(--surface); color: var(--fg);
+}
+.btn.primary { background: var(--accent); color: var(--accent-fg); border-color: var(--accent); }
+.btn.danger { color: var(--red); border-color: var(--red); }
+
+.logtools { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; padding-block: 4px 12px; }
+.logtools .hint { grid-column: 1 / -1; font-size: 13px; color: var(--muted); margin: 0; }
+.hist { list-style: none; margin: 0; padding: 0; }
+.hist li { border-top: 1px solid var(--line); padding-block: 12px; display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 4px 10px; }
+.hist .meta { font: 500 13px var(--font-mono); color: var(--muted); }
+.hist .prev { grid-column: 1 / -1; font-size: 14px; overflow-wrap: anywhere; }
+.hist .hbtns { display: flex; gap: 6px; }
+.hist .hbtns button { font: 600 13px var(--font-body); background: var(--chip); color: var(--fg); border: 1px solid var(--line); border-radius: 6px; padding: 4px 10px; cursor: pointer; }
+.hist .hbtns button.danger { color: var(--red); }
+.empty { color: var(--muted); padding-block: 24px; }
+
+.radio {
+  position: fixed; inset: 0; z-index: 20; background: var(--bg); overflow-y: auto;
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: calc(16px + env(safe-area-inset-top, 0px)) calc(16px + env(safe-area-inset-bottom, 0px));
+}
+.radio .inner { max-width: 720px; margin: 0 auto; display: flex; flex-direction: column; gap: 16px; }
+.radio .rtop { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.radio .rtop h2 { font: 700 20px var(--font-display); letter-spacing: .05em; text-transform: uppercase; margin: 0; flex: 1; color: var(--muted); }
+.toggle { display: flex; align-items: center; gap: 6px; font-size: 14px; color: var(--muted); }
+.spoken { font: 500 clamp(22px, 6vw, 32px)/1.4 var(--font-body); margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 14px; }
+.spoken li { overflow-wrap: anywhere; }
+.spoken .call { color: var(--accent); font-weight: 600; }
+.spoken .lab { color: var(--muted); font-size: .7em; text-transform: uppercase; letter-spacing: .06em; display: block; }
+.radio .rbtns { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; }
+
+.toast {
+  position: fixed; left: 50%; bottom: calc(84px + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%);
+  background: var(--fg); color: var(--bg); padding: 8px 14px; border-radius: 6px; font-size: 14px; z-index: 30;
+  max-width: calc(100% - 32px);
+}
+@media (prefers-reduced-motion: no-preference) { .toast { transition: opacity .2s; } }
+</style>
+</head>
+<body>
+
+<div class="wrap">
+  <header class="top">
+    <div class="brand">
+      <h1>Rapportblock</h1>
+      <button class="calls" id="callsBtn" aria-expanded="false" aria-controls="settings"></button>
+      <button class="iconbtn" id="nightBtn" aria-pressed="false" title="Rött ljus för mörker">Mörker</button>
+    </div>
+    <div class="settings" id="settings" hidden>
+      <label for="setMe">Egen anropssignal<input id="setMe" type="text" autocomplete="off"></label>
+      <label for="setTo">Mottagare<input id="setTo" type="text" autocomplete="off"></label>
+    </div>
+    <nav class="tabs" id="tabs" role="tablist"></nav>
+  </header>
+  <main id="main"></main>
+</div>
+
+<div class="actions" id="actions">
+  <div class="row">
+    <button class="btn primary" id="radioBtn">Radio</button>
+    <button class="btn" id="copyBtn">Kopiera</button>
+    <button class="btn" id="saveBtn">Spara</button>
+    <button class="btn" id="clearBtn">Rensa</button>
+  </div>
+</div>
+
+<section class="radio" id="radio" hidden aria-label="Läs upp">
+  <div class="inner">
+    <div class="rtop">
+      <h2 id="radioTitle">Radio</h2>
+      <label class="toggle" for="labelsToggle"><input type="checkbox" id="labelsToggle"> Säg rubriker</label>
+    </div>
+    <ol class="spoken" id="spoken"></ol>
+    <div class="rbtns">
+      <button class="btn" id="rCopy">Kopiera</button>
+      <button class="btn primary" id="rSent">Sänt, spara</button>
+      <button class="btn" id="rClose">Stäng</button>
+    </div>
+  </div>
+</section>
+
+<input type="file" id="importFile" accept=".json,application/json" hidden>
+<div class="toast" id="toast" hidden></div>
+
+<script>
+// Formulärdefinitioner. Nya formulär läggs till här.
+// group: rapport (sänds på radio med anrop och "Slut, kom"), instruktion (sägs muntligt till soldaterna), kontroll.
+// type: text (fritext + snabbval), counts (siffror), rows (rader), color (grönt/gult/rött).
+// Snabbval: {me} = egen signal, {nu} = klockslag, {tnr} = tidsnummer.
+// Innehållet i minnesramsorna följer "SÖF v.642 – Läshänvisningar och minnesramsor".
+const BSO = {
+  B: { key: 'B', label: 'Bevakningsområde', say: 'Bevakningsområde', hint: 'Höger och vänster gräns, och hur djupt.',
+       chips: ['Från ', 'till ', 'djup ', 'vägen', 'skogskanten', 'gläntan'] },
+  S: { key: 'S', label: 'Sätt att tillkalla chef', say: 'Tillkalla chef',
+       chips: ['Rop', 'Tecken', 'Väck mig', 'Ordonnans', 'Radio '] },
+  Ö: { key: 'Ö', label: 'Öppnande av eld', say: 'Öppnande av eld', hint: 'När posten får skjuta. Följ gällande insatsregler.',
+       chips: ['Endast på order', 'Mot beväpnad fiende som ', 'Om vi blir beskjutna', 'Tillkalla chef först'] },
+};
+const FORMS = [
+  {
+    id: 'FORS', title: 'FORS', group: 'rapport', desc: 'Lägesrapport. Säg innehållet i ordning, inte rubrikerna.',
+    intro: '', labels: false,
+    fields: [
+      { key: 'F', label: 'Förbandets position', say: 'Förband', hint: 'Var gruppen är, och styrka.',
+        chips: ['{me} vid ', 'samlat', 'full styrka', 'i ställning', 'framrycker'] },
+      { key: 'O', label: 'Orientering om fienden', say: 'Orientering', hint: 'Vad du vet, inte vad du tror.',
+        chips: ['Fienden ej observerad', 'Har observerat ', 'möjlig spaningsgrupp i området', 'på väg österut', 'på väg västerut'] },
+      { key: 'R', label: 'Rapport', say: 'Rapport', hint: 'Genomfört, pågående, kommande. Även det som är som det ska.',
+        chips: ['Order given', 'Framrycker till ', 'Har tagit stridsställning ', 'Genomför ', 'Inga skadade', 'Full ammunition'] },
+      { key: 'S', label: 'Slutsatser', say: 'Slutsats', hint: 'Vad gruppen kan göra härnäst, med tid.',
+        chips: ['Jag kan ', 'inom 5 minuter', 'inom 15 minuter', 'Nästa rapport när '] },
+    ],
+  },
+  {
+    id: '7S', title: '7S/8S', group: 'rapport', desc: 'Spaningsrapport. Med Sedan blir det 8S. Drönare rapporteras också enligt 8S.',
+    intro: 'Spaningsrapport', labels: false,
+    fields: [
+      { key: 'S', label: 'Stund', say: 'Stund', hint: 'Tidsnummer (DDTTMM) för observationen.', chips: ['{tnr}', '{tnr-5}', '{tnr-15}'] },
+      { key: 'S', label: 'Ställe', say: 'Ställe', hint: 'Från UPK eller känd plats.',
+        chips: ['UPK ', 'meter ', 'norr om ', 'söder om ', 'öster om ', 'väster om ', 'vägen '] },
+      { key: 'S', label: 'Styrka', say: 'Styrka', hint: 'Bara antal. Vad det är anges i Slag.', chips: ['1', '2', '3', '4', '5', '6', '8', '10', 'cirka '] },
+      { key: 'S', label: 'Slag', say: 'Slag', hint: 'Vad: man, fordon, drönare. Gärna mer detaljer.',
+        chips: ['man', 'till fots', 'hjulfordon', 'bandfordon', 'drönare', 'helikopter', 'beväpnade', 'uniformerade', 'civilklädda'] },
+      { key: 'S', label: 'Sysselsättning', say: 'Sysselsättning',
+        chips: ['rör sig norrut', 'rör sig söderut', 'rör sig österut', 'rör sig västerut', 'står still', 'grupperar', 'spanar', 'skjuter'] },
+      { key: 'S', label: 'Symbol', say: 'Symbol', hint: 'Kännetecken, märken, fordonsbeteckning.', chips: ['Inga synliga', 'Okänd'] },
+      { key: 'S', label: 'Sagesman', say: 'Sagesman', hint: 'Rapporterande enhet och person.', chips: ['Jag själv', '{me}', 'Egen MRPAS', 'Sensor ', 'Civil person'] },
+      { key: 'S', label: 'Sedan', say: 'Sedan', hint: 'Vart de tog vägen, vad du gjort och vilken effekt det fick.', chips: ['Fortsätter observation', 'Följer efter', 'Inga åtgärder'] },
+    ],
+  },
+  {
+    id: 'PEDARS', title: 'PEDARS', group: 'rapport', desc: 'Underhålls- och stridsvärdesrapport. Förkortningen sägs före siffran.',
+    intro: 'PEDARS', labels: true,
+    fields: [
+      { key: 'P', label: 'Personal', say: 'Personal', type: 'counts', hint: 'Antal i stridbart skick, skadade/sjuka, avdelade, avtransporterade och underställda. Tomt fält sägs inte. Namn och befattningsnummer vid behov.',
+        // [nyckel, beskrivning, det som sägs]. De två sista finns på lektionsbilden men inte på PEDARS-kortet, så de sägs utskrivna.
+        counts: [['SS', 'Stridbart skick'], ['SPK', 'Skadade/sjuka på kompaniet'], ['AVD', 'Avdelade till annan enhet'],
+                 ['AVTR', 'Avtransporterade (sjuka, skadade, döda)', 'avtransporterade'], ['UND', 'Underställda', 'underställda']] },
+      { key: 'E', label: 'Ersättning', say: 'Ersättning', type: 'rows', hint: 'Ersättning av andra förnödenheter.', empty: 'Inget behov',
+        cols: [{ f: 'n', label: 'Sak', w: '2fr', list: ['Vatten', 'Rations', 'Batteri AA', 'Batteri AAA', 'Gas 500 ml', 'T-röd 1 L', 'Skosnören', 'Tejp', 'Första förband'] },
+               { f: 'a', label: 'Antal', num: true }, { f: 'u', label: 'Enhet', opts: ['st', 'pkt', 'par', 'rl', 'liter'] }],
+        fmt: r => [r.n, r.a, r.a ? r.u : ''].filter(Boolean).join(' ') },
+      { key: 'D', label: 'Drivmedel', say: 'Drivmedel', type: 'rows', hint: 'Kvar i procent per fordon (räkna in dunkar). Sedan behov i liter per slag.', init: [{ n: 'Pb 8', d: 'Diesel' }],
+        cols: [{ f: 'n', label: 'Fordon', w: '1.6fr', list: ['Pb 8', 'Lastbil 1', 'Terrängbil'] }, { f: 'p', label: 'Kvar %', num: true }, { f: 'd', label: 'Slag', w: '1.2fr', opts: ['Diesel', 'Bensin'] }],
+        fmt: r => has(r.p) ? [r.n, `${r.p} procent ${(r.d || 'Diesel').toLowerCase()}`].filter(Boolean).join(' ') : '',
+        after: [{ k: 'bd', label: 'Behov diesel L' }, { k: 'bb', label: 'Behov bensin L' }],
+        fmtAfter: (d, k) => { const b = [has(d[k + 'bd']) ? `${d[k + 'bd']} liter diesel` : '', has(d[k + 'bb']) ? `${d[k + 'bb']} liter bensin` : ''].filter(Boolean); return b.length ? 'Behov ' + b.join(', ') : ''; } },
+      { key: 'A', label: 'Ammunition', say: 'Ammunition', type: 'rows', hint: 'Typ och antal detaljerat. Behov i styck, behållning i procent.', empty: 'Full ammunition',
+        cols: [{ f: 'n', label: 'Slag', w: '1.6fr', list: ['5,56', '7,62', '12,7', 'Grt', 'P-skott', 'Handgranat', 'Stridsvagnsmina'] },
+               { f: 'b', label: 'Behov st', num: true }, { f: 's', label: 'Status %', num: true }],
+        fmt: r => [r.n, has(r.b) ? `behov ${r.b} styck` : '', has(r.s) ? `status ${r.s} procent` : ''].filter(Boolean).join(', ') },
+      { key: 'R', label: 'Reparationer', say: 'Reparationer', type: 'rows', hint: 'Utgå från felrapporten. Skadefärg, regnr/individnummer och skadan så detaljerat att rep-gruppen tar med rätt verktyg och delar.', empty: 'Inga',
+        cols: [{ f: 'c', label: 'Färg', opts: ['Röd', 'Gul', 'Grön'] }, { f: 'n', label: 'Objekt', w: '1.4fr', list: ['Pb 8', 'IRV', 'Radio', 'Ksp'] }, { f: 's', label: 'Skada', w: '1.6fr' }],
+        fmt: r => r.n || r.s ? `${r.c || 'Röd'}: ${[r.n, r.s].filter(Boolean).join(', ')}` : '' },
+      { key: 'S', label: 'Stridsvärde', say: 'Stridsvärde', type: 'color', hint: 'Kan vi lösa uppgiften? Vid gult och rött: ange vad som begränsar just din enhet.',
+        chipsTo: 'lim', chips: ['PV-vapen saknas', 'IR-kamera trasig', 'fordon på reparation', 'låg ammunition', ' man borta', 'radio trasig'] },
+    ],
+  },
+  {
+    id: 'OBO', title: 'OBO', group: 'instruktion', desc: 'Order till gruppen. Peka i terrängen. Beslut i futurum, order i presens.',
+    labels: true, outro: 'Frågor?',
+    fields: [
+      { key: 'T', small: true, label: 'Tidgivning och terräng', say: 'Tid och terräng', hint: 'Jämför klockor. Peka ut terrängen.',
+        chips: ['{nu}', 'Vi går om ', 'Norr är där (pekar)', 'Där (pekar) '] },
+      { key: '1', label: 'Orientering', say: 'Orientering', hint: 'Motståndaren, civila, plutonens uppgift och syfte, sidoförband, understöd, terräng, sikt.',
+        chips: ['Fienden: ', 'Civila: ', 'Plutonen ska ', 'i syfte att ', 'Till höger om oss ', 'Till vänster om oss ', 'Understöd: '] },
+      { key: '2', label: 'Uppgift', say: 'Uppgift', hint: 'Gruppens uppgift och syfte.', chips: ['Vi ska ', 'i syfte att ', 'Beredd att '] },
+      { key: '3', label: 'Beslut', say: 'Beslut', hint: 'Hur du avser lösa uppgiften: inledningsvis, därefter, slutligen, med syfte. Stridsgruppsform.',
+        chips: ['Inledningsvis ', 'Därefter ', 'Slutligen ', 'i syfte att ', 'i kolonn', 'i linje', 'i kil'] },
+      { key: 'O', label: 'Order', say: 'Order', hint: 'Per omgång eller person: vem gör vad, när och var. Insatsregler, gränser.',
+        chips: ['Omgång 1: ', 'Omgång 2: ', 'Stf: ', 'Hundförare: ', 'Sjukvårdare: ', 'Alla: ', 'senast ', 'anmäler ', 'beredd att '] },
+      { key: '4', label: 'Uthållighet', say: 'Uthållighet', hint: 'Ammunition, sjukvård, samlingsplats för skadade, ÅSA.',
+        chips: ['ÅSA: ', 'Samlingsplats för skadade: ', 'Ammunition: '] },
+      { key: '5', label: 'Ledning', say: 'Ledning', hint: 'Var du är, vem som ersätter dig, samband.',
+        chips: ['Min plats: ', 'Stf ersätter mig.', 'Samband: ', 'tecken', 'IGR'] },
+    ],
+  },
+  {
+    id: 'ERER', title: 'ERER/EKER', group: 'instruktion', desc: 'Ges när soldaterna tilldelas eldställning. Rapportera "Eldberedda" till plutonchefen.',
+    labels: false,
+    fields: [
+      { key: 'E', label: 'Eldställningar', say: 'Eldställning', chips: ['Du ligger ', 'där (pekar)', 'vid stenen', 'vid trädet', 'bakom kullen'] },
+      { key: 'R', label: 'Riktning/klockslag', say: 'Riktning', hint: 'Klockslag från din riktning, eller riktningen mot ett föremål.',
+        chips: ['Klockan 12 är ', 'Riktning ', 'mot vägen', 'mot skogskanten'] },
+      { key: 'E', label: 'Eldområde', say: 'Eldområde', hint: 'Höger och vänster gräns.', chips: ['Från ', 'till ', 'Ditt eldområde är '] },
+      { key: 'R', label: 'Rapport till plutonchef', say: 'Rapport', chips: ['Rapportera eldberedd till mig.', 'Tecken när du är klar.'] },
+    ],
+  },
+  {
+    id: 'EOBUSARE', title: 'EOBUSARE', group: 'instruktion', desc: 'Påbyggnad på ERER/EKER när det finns mer tid för förberedelser.',
+    labels: true,
+    fields: [
+      { key: 'E', label: 'Eldställning', say: 'Eldställning', chips: ['Du ligger ', 'där (pekar)', 'Eldområde från ', 'till '] },
+      { key: 'O', label: 'Observatör', say: 'Observatör', hint: 'Vem som observerar, och när ni växlar.', chips: ['Observatör: ', 'övriga vilar', 'Växla var '] },
+      BSO.B,
+      { key: 'U', label: 'Utgångspunkter', say: 'Utgångspunkter', hint: 'Tydliga föremål med namn och avstånd, för att kunna peka ut mål.',
+        chips: ['UP 1: ', 'UP 2: ', 'UP 3: ', 'avstånd ', 'meter'] },
+      { key: 'S', label: 'Samband', say: 'Samband', chips: ['Tecken', 'Rop', 'Ordonnans', 'Radio '] },
+      { key: 'A', label: 'Am- och skaderapport', say: 'Am- och skaderapport', chips: ['Rapportera ammunition efter varje eldstrid.', 'Skadad: ropa sjukvårdare.'] },
+      { key: 'R', label: 'Rapport till plutonchef', say: 'Rapport', chips: ['Rapportera klar till mig.', 'Jag rapporterar eldberedda till plutonchefen.'] },
+      { key: 'E', label: 'Eldställningar – förbättra', say: 'Förbättra', chips: ['Förbättra skyddet', 'gräv ner', 'maskera', 'röj skottfält', 'förbered skyddsställning'] },
+    ],
+  },
+  {
+    id: 'BSÖ', title: 'BSÖ', group: 'instruktion', desc: 'Kortaste instruktionen till observatör, post eller patrull.',
+    labels: true, fields: [BSO.B, BSO.S, BSO.Ö],
+  },
+  {
+    id: 'OBSLÖSA', title: 'OBSLÖSA', group: 'instruktion', desc: 'Postinstruktion. Utökad BSÖ.',
+    labels: true,
+    fields: [
+      { key: 'O', label: 'Orientering', say: 'Orientering', hint: 'Fienden, egna och civila i området.', chips: ['Fienden: ', 'Egna: ', 'Civila: ', 'Patrull passerar '] },
+      BSO.B, BSO.S,
+      { key: 'L', label: 'Lösen', say: 'Lösen', hint: 'Säg lösen muntligt. Skriv inte det verkliga lösenordet i telefonen.', chips: ['Ges muntligt', 'Enligt order'] },
+      BSO.Ö,
+      { key: 'S', label: 'Ställning och utrustning', say: 'Ställning och utrustning', chips: ['Ligg ', 'Stå ', 'IRV', 'BF', 'kikare', 'radio', 'full stridsutrustning'] },
+      { key: 'A', label: 'Avlösning', say: 'Avlösning', chips: ['Avlöses klockan ', 'Avlösning var ', 'Väck avlösaren 10 minuter före.'] },
+    ],
+  },
+  {
+    id: '8F', title: '8F', group: 'kontroll', desc: 'Kontroll av eldställning eller stridsställning. Bocka av eller skriv bristen.',
+    labels: true,
+    fields: [
+      ['Frontalt skydd', 'Undgå motståndarens direktskjutande understöd.'],
+      ['Flankerande skjutriktning', 'Elden ska slå i motståndarens sida.'],
+      ['Försvarbara skjutavstånd', 'Elden måste träffa och ge verkan.'],
+      ['Fritt skottfält', 'Motståndaren ska ta emot elden, inte terrängen framför oss.'],
+      ['Fly skogsbryn (fasader)', 'Låt skogsbrynet ta emot elden och skydda oss.'],
+      ['Flygskydd', 'Undgå upptäckt från motståndarens flygfarkoster.'],
+      ['Fältarbeten underlättas', 'Kunna använda minor och gräva ner oss.'],
+      ['Fria omgrupperingsvägar', 'Omgruppering ska ske skyddat och snabbt.'],
+      ['3D', 'Observation och eldberedskap även i höjdled, främst i bebyggelse.'],
+    ].map(([label, hint], i) => ({ key: i < 8 ? 'F' : '3D', small: i === 8, label, say: label, hint, chips: ['OK', 'Brist: ', 'Ej aktuellt'] })),
+  },
+  {
+    id: 'Skiss', title: 'Detaljskiss', group: 'kontroll', desc: 'En per sensor (CIM 2, UMRA, PIR, kamera). Rita skissen på papper, skriv uppgifterna här.',
+    labels: true,
+    fields: [
+      { key: 'S', label: 'Sensor', say: 'Sensor', hint: 'Typ och nummer.', chips: ['UMRA ', 'PIR ', 'Kamera ', 'CIM magnetgivare ', 'Larmmina '] },
+      { key: 'U', label: 'Utlagd av', say: 'Utlagd av', hint: 'Namn och förband.', chips: ['{me}', '1 pluton'] },
+      { key: 'T', label: 'Tidsnummer', say: 'Tidsnummer', chips: ['{tnr}'] },
+      { key: 'P', label: 'Position', say: 'Position', hint: 'MGRS, 4+4 siffror.', chips: ['33V XF '] },
+      { key: 'U', label: 'Utgångspunkt', say: 'Utgångspunkt', hint: 'Ett tydligt föremål och dess koordinat.',
+        chips: ['Stora tallen', 'stenblocket', 'vägskälet', 'södra sidan vägen', 'norra sidan vägen', '33V XF '] },
+      { key: 'R', label: 'Riktning och avstånd', say: 'Riktning och avstånd', hint: 'Från utgångspunkten. Riktning i streck (6400 per varv).',
+        chips: ['Riktning ', 'streck', 'avstånd ', 'meter'] },
+      { key: 'B', label: 'Beskrivning', say: 'Beskrivning', hint: 'Var i terrängen den sitter, och marschvägen dit.',
+        chips: ['Marschväg: ', 'snubbeltråd runt ', 'utan spänn', 'kabel till '] },
+    ],
+  },
+];
+const GROUPS = ['rapport', 'instruktion', 'kontroll'];
+const COLORS = { gront: 'Grönt', gult: 'Gult', rott: 'Rött' };
+const EXAMPLE = {
+  __example: true,
+  f0: 'EA samlat vid gården, full styrka.',
+  f1: 'Fienden ej observerad. Möjlig spaningsgrupp i området.',
+  f2: 'Order given. Framrycker genom skogen till skogskanten söder om gården. Inga skadade, full ammunition.',
+  f3: 'Jag kan genomsöka gården. Nästa rapport när husen är genomsökta.',
+};
+// Exempel på plutonsnivå.
+const EXAMPLE_PEDARS = {
+  __example: true,
+  f0SS: 28, f0SPK: 2, f0AVD: 2,
+  f1: [{ n: 'Tejp', a: 2, u: 'rl' }, { n: 'Skosnören', a: 4, u: 'par' }, { n: 'Batteri AAA', a: 9, u: 'pkt' }, { n: 'Gas 500 ml', a: 5, u: 'st' },
+       { n: 'Batteri AA', a: 4, u: 'pkt' }, { n: 'T-röd 1 L', a: 6, u: 'st' }, { n: 'Första förband', a: 3, u: 'st' }, { n: 'Rations', a: 8, u: 'st' }, { n: 'Vatten', a: 20, u: 'liter' }],
+  f2: [{ n: '', p: 70, d: 'Diesel' }, { n: '', p: 100, d: 'Bensin' }], f2bd: 155,
+  f3: [{ n: '7,62', b: 3040, s: 45 }, { n: 'P-skott', b: 15, s: 20 }, { n: 'Stridsvagnsmina', b: 7, s: 75 }],
+  f4: [{ c: 'Röd', n: 'Pb 8 (EA)', s: 'skadat framdäck' }, { c: 'Röd', n: 'Pb 8 ABC123', s: 'punktering' }],
+  f5: 'gult', f5lim: 'två fordon på reparation, låg ammunition, 4 man borta',
+};
+const has = v => v !== undefined && v !== null && v !== '';
+const LOG_MAX = 500;
+
+// Lagring. Allt ligger i den här webbläsaren.
+const store = {
+  get(k, d) { try { const v = localStorage.getItem('rb.' + k); return v ? JSON.parse(v) : d; } catch { return d; } },
+  set(k, v) { try { localStorage.setItem('rb.' + k, JSON.stringify(v)); } catch {} },
+};
+const state = {
+  me: store.get('me', 'EA'),
+  to: store.get('to', 'AN'),
+  night: store.get('night', false),
+  tab: store.get('tab', 'FORS'),
+  drafts: store.get('drafts', null),
+  history: store.get('history', []),
+};
+if (!state.drafts) state.drafts = { FORS: { ...EXAMPLE } };
+if (!state.drafts.PEDARS) state.drafts.PEDARS = JSON.parse(JSON.stringify(EXAMPLE_PEDARS));
+if (state.tab !== 'Logg' && !FORMS.some(f => f.id === state.tab)) state.tab = 'FORS';
+const $ = id => document.getElementById(id);
+const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+const form = () => FORMS.find(f => f.id === state.tab);
+const draft = id => (state.drafts[id] ||= {});
+const saveDrafts = () => store.set('drafts', state.drafts);
+const isReport = fm => fm.group === 'rapport';
+const clock = (d = new Date()) => d.toLocaleTimeString('sv-SE', { hour: '2-digit', minute: '2-digit' }).replace(':', '.');
+// Tidsnummer DDTTMM, valfritt bakåt i minuter.
+const tnr = (back = 0) => { const d = new Date(Date.now() - back * 60000); const p = n => String(n).padStart(2, '0'); return p(d.getDate()) + p(d.getHours()) + p(d.getMinutes()); };
+const fillChip = c => c.replace(/\{me\}/g, state.me).replace('{nu}', 'Klockan är ' + clock())
+  .replace(/\{tnr(?:-(\d+))?\}/, (_, m) => 'Tidsnummer ' + tnr(+m || 0));
+const chipLabel = c => c.replace(/\{me\}/g, state.me).replace('{nu}', 'Klockan nu')
+  .replace(/\{tnr(?:-(\d+))?\}/, (_, m) => m ? `TNR −${m} min` : 'TNR nu').trim();
+
+function toast(msg) {
+  const t = $('toast'); t.textContent = msg; t.hidden = false;
+  clearTimeout(toast.t); toast.t = setTimeout(() => { t.hidden = true; }, 2600);
+}
+
+// Rubrik och anropssignaler
+function renderTop() {
+  $('callsBtn').textContent = `${state.me} → ${state.to}`;
+  $('setMe').value = state.me; $('setTo').value = state.to;
+  document.documentElement.dataset.night = state.night ? 'on' : 'off';
+  $('nightBtn').setAttribute('aria-pressed', state.night);
+  const tab = (id, text) => `<button role="tab" data-tab="${esc(id)}" aria-selected="${id === state.tab}">${esc(text)}</button>`;
+  $('tabs').innerHTML = GROUPS.map(g => FORMS.filter(f => f.group === g).map(f => tab(f.id, f.title)).join('')).join('<span class="sep" aria-hidden="true"></span>')
+    + '<span class="sep" aria-hidden="true"></span>' + tab('Logg', 'Logg');
+  $('tabs').querySelector('[aria-selected="true"]')?.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+}
+
+// Fältens värde som text
+function fieldText(f, i, d) {
+  const k = 'f' + i;
+  if (f.type === 'counts') {
+    const parts = f.counts.map(([a, , s]) => has(d[k + a]) ? `${s || a} ${d[k + a]}` : null).filter(Boolean);
+    const names = (d[k + 'names'] || '').trim();
+    return [parts.join(', '), names].filter(Boolean).join('. ');
+  }
+  if (f.type === 'rows') {
+    const parts = (d[k] || []).map(f.fmt).filter(Boolean);
+    const extra = f.fmtAfter ? f.fmtAfter(d, k) : '';
+    if (extra) parts.push(extra);
+    return parts.length ? parts.join('. ') : (f.empty || '');
+  }
+  if (f.type === 'color') {
+    const c = COLORS[d[k]]; const lim = (d[k + 'lim'] || '').trim();
+    return [c, lim].filter(Boolean).join(', ');
+  }
+  return (d[k] || '').trim();
+}
+const sentence = s => { s = s.trim(); if (!s) return ''; s = s[0].toUpperCase() + s.slice(1); return /[.!?]$/.test(s) ? s : s + '.'; };
+
+// Rapporter ramas in med anrop och "Slut, kom". Instruktioner sägs direkt till soldaterna.
+function spokenLines(fm, d, labels) {
+  const lines = isReport(fm) ? [{ call: true, t: `${state.to} från ${state.me}.` }] : [];
+  if (fm.intro) lines.push({ t: sentence(fm.intro) });
+  fm.fields.forEach((f, i) => { const v = fieldText(f, i, d); if (v) lines.push({ lab: labels ? f.say : '', t: sentence(v) }); });
+  if (isReport(fm)) lines.push({ call: true, t: 'Slut, kom.' });
+  if (fm.outro) lines.push({ call: true, t: fm.outro });
+  return lines;
+}
+function writtenText(fm, d) {
+  const now = new Date();
+  const who = isReport(fm) ? `${state.me} till ${state.to}` : state.me;
+  const head = `${fm.title} ${who}, ${now.toLocaleDateString('sv-SE', { day: 'numeric', month: 'short' })} kl ${clock(now)}`;
+  const rows = fm.fields.map((f, i) => { const v = fieldText(f, i, d); return v ? `${f.key} ${f.label}: ${sentence(v)}` : null; }).filter(Boolean);
+  return [head, ...rows].join('\n');
+}
+
+// Formulär
+function renderForm() {
+  const fm = form(); const d = draft(fm.id);
+  let h = `<div class="formhead"><h2>${esc(fm.title)}</h2>`;
+  if (d.__example) h += `<span class="pill example">Exempel</span><button class="linkbtn" data-act="clear-example">Töm exemplet</button>`;
+  h += `<p>${esc(fm.desc)}</p></div>`;
+  fm.fields.forEach((f, i) => {
+    const k = 'f' + i;
+    h += `<div class="field"><div class="letter${f.small ? ' small' : ''}" aria-hidden="true">${esc(f.key)}</div><div class="fbody">
+      <label class="lbl" for="${fm.id}-${k}">${esc(f.label)}</label>${f.hint ? `<div class="hint">${esc(f.hint)}</div>` : ''}`;
+    if (f.type === 'counts') {
+      h += `<div class="counts">${f.counts.map(([a, t, s]) => `<div class="count"><span title="${esc(t)}">${s ? esc(s[0].toUpperCase() + s.slice(1, 7)) + '.' : a}</span>
+        <div class="stepper"><button data-step="-1" data-k="${k + a}" aria-label="${a} minus">−</button>
+        <input type="number" inputmode="numeric" min="0" id="${fm.id}-${k}${a === 'SS' ? '' : a}" data-k="${k + a}" value="${esc(d[k + a] ?? '')}" aria-label="${esc(t)}">
+        <button data-step="1" data-k="${k + a}" aria-label="${a} plus">+</button></div></div>`).join('')}</div>
+        <input type="text" data-k="${k}names" value="${esc(d[k + 'names'] || '')}" placeholder="Namn och befattningsnummer (valfritt)" aria-label="Namn och befattningsnummer">`;
+    } else if (f.type === 'rows') {
+      const rows = d[k] ||= JSON.parse(JSON.stringify(f.init || [{}]));
+      const tpl = f.cols.map(c => `minmax(0, ${c.w || '1fr'})`).join(' ') + ' 32px';
+      h += f.cols.filter(c => c.list).map(c => `<datalist id="dl-${fm.id}-${k}-${c.f}">${c.list.map(o => `<option value="${esc(o)}"></option>`).join('')}</datalist>`).join('');
+      h += rows.map((r, j) => `<div class="vrow" style="grid-template-columns:${tpl}">${f.cols.map((c, ci) => {
+        const a = `data-v="${k}" data-j="${j}" data-f="${c.f}" ${j === 0 && ci === 0 ? `id="${fm.id}-${k}"` : ''}`;
+        const ctl = c.opts
+          ? `<select ${a}>${c.opts.map(o => `<option${(r[c.f] ?? c.opts[0]) === o ? ' selected' : ''}>${o}</option>`).join('')}</select>`
+          : `<input type="${c.num ? 'number' : 'text'}" ${c.num ? 'inputmode="numeric"' : ''} ${c.list ? `list="dl-${fm.id}-${k}-${c.f}"` : ''} ${a} value="${esc(r[c.f] ?? '')}">`;
+        return `<label>${j === 0 ? esc(c.label) : ''}${ctl}</label>`;
+      }).join('')}<button class="del" data-vdel="${k}" data-j="${j}" aria-label="Ta bort rad">×</button></div>`).join('') +
+        `<div class="chips"><button data-vadd="${k}">+ Rad</button>${f.empty ? `<span class="hint">Tomt = "${esc(f.empty)}"</span>` : ''}</div>`;
+      if (f.after) h += `<div class="vrow" style="grid-template-columns:repeat(${f.after.length}, minmax(0, 1fr))">${f.after.map(a =>
+        `<label>${esc(a.label)}<input type="number" inputmode="numeric" data-k="${k + a.k}" value="${esc(d[k + a.k] ?? '')}"></label>`).join('')}</div>`;
+    } else if (f.type === 'color') {
+      h += `<div class="colors" role="group" aria-label="Stridsvärde">${Object.entries(COLORS).map(([c, t]) =>
+        `<button data-c="${c}" data-k="${k}" aria-pressed="${d[k] === c}" ${c === 'gront' ? `id="${fm.id}-${k}"` : ''}>${t}</button>`).join('')}</div>
+        <textarea data-k="${k}lim" placeholder="Begränsningar" aria-label="Begränsningar">${esc(d[k + 'lim'] || '')}</textarea>
+        ${(d[k] === 'gult' || d[k] === 'rott') && !(d[k + 'lim'] || '').trim() ? '<div class="warn">Ange begränsningarna.</div>' : ''}`;
+    } else {
+      h += `<textarea id="${fm.id}-${k}" data-k="${k}">${esc(d[k] || '')}</textarea>`;
+    }
+    if (f.chips) h += `<div class="chips">${f.chips.map(c => `<button data-chip="${esc(c)}" data-k="${k + (f.chipsTo || '')}">${esc(chipLabel(c))}</button>`).join('')}</div>`;
+    h += `</div></div>`;
+  });
+  $('main').innerHTML = h;
+  $('radioBtn').textContent = isReport(fm) ? 'Radio' : 'Läs upp';
+}
+
+function renderLog() {
+  const items = state.history;
+  $('main').innerHTML = `<div class="formhead"><h2>Logg</h2><p>Sparade och sända rapporter i den här webbläsaren, senaste först. Exportera för att ta en säkerhetskopia eller flytta loggen till en annan telefon.</p></div>
+    <div class="logtools"><button class="btn" data-act="export">Exportera</button><button class="btn" data-act="import">Importera</button>
+    <p class="hint">${items.length} av högst ${LOG_MAX} rapporter. Import lägger till nya och hoppar över dem som redan finns.</p></div>` +
+    (items.length ? `<ul class="hist">${items.map(e => `<li>
+      <div class="meta">${esc(FORMS.find(f => f.id === e.form)?.title || e.form)} · ${esc(e.me)}${FORMS.find(f => f.id === e.form)?.group === 'rapport' ? ' → ' + esc(e.to) : ''} · ${new Date(e.ts).toLocaleString('sv-SE', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}${e.sent ? ' · sänd' : ''}</div>
+      <div class="hbtns"><button data-open="${esc(e.id)}">Öppna</button><button class="danger" data-del="${esc(e.id)}">Radera</button></div>
+      <div class="prev">${esc(e.preview)}</div></li>`).join('')}</ul>`
+      : `<p class="empty">Inget sparat än. Tryck Spara eller Kopiera på en rapport så hamnar den här.</p>`);
+}
+
+function render() {
+  renderTop();
+  const log = state.tab === 'Logg';
+  $('actions').hidden = log;
+  log ? renderLog() : renderForm();
+}
+
+function touch(fm) { const d = draft(fm.id); delete d.__example; saveDrafts(); }
+
+function addToLog(sent) {
+  const fm = form(); const d = draft(fm.id);
+  const preview = fm.fields.map((f, i) => fieldText(f, i, d)).filter(Boolean).join(' · ');
+  if (!preview) { toast('Rapporten är tom.'); return false; }
+  state.history.unshift({ id: Date.now().toString(36), form: fm.id, ts: Date.now(), me: state.me, to: state.to, sent, values: JSON.parse(JSON.stringify(d)), preview });
+  state.history = state.history.slice(0, LOG_MAX);
+  store.set('history', state.history);
+  return true;
+}
+
+// Export och import av loggen som JSON-fil
+async function exportLog() {
+  if (!state.history.length) { toast('Loggen är tom.'); return; }
+  const data = JSON.stringify({ app: 'rapportblock', version: 1, exported: new Date().toISOString(), me: state.me, history: state.history });
+  const name = `rapportblock-${state.me.replace(/[^\wÅÄÖåäö-]/g, '')}-${tnr()}.json`;
+  const file = new File([data], name, { type: 'application/json' });
+  // Telefonens dela-meny först (spara i Filer, skicka i Signal). Annars vanlig nedladdning.
+  try {
+    if (navigator.canShare?.({ files: [file] })) { await navigator.share({ files: [file], title: name }); return; }
+  } catch (e) { if (e.name === 'AbortError') return; }
+  try {
+    const a = document.createElement('a'); a.href = URL.createObjectURL(file); a.download = name;
+    document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 10000);
+    toast('Sparad som ' + name);
+  } catch {
+    toast((await copy(data)) || copyFallback(data) ? 'Kunde inte spara fil. Loggen är kopierad som text.' : 'Kunde inte exportera.');
+  }
+}
+function importLog(text) {
+  let data;
+  try { data = JSON.parse(text); } catch { toast('Filen är inte en rapportblock-export.'); return; }
+  const list = Array.isArray(data) ? data : data?.history;
+  if (!Array.isArray(list)) { toast('Filen är inte en rapportblock-export.'); return; }
+  const valid = list.filter(e => e && typeof e.id === 'string' && typeof e.form === 'string' && Number.isFinite(e.ts) && e.values && typeof e.values === 'object')
+    .map(e => ({ id: e.id, form: e.form, ts: e.ts, me: String(e.me ?? ''), to: String(e.to ?? ''), sent: !!e.sent, values: e.values, preview: String(e.preview ?? '') }));
+  const ids = new Set(state.history.map(e => e.id));
+  const fresh = valid.filter(e => !ids.has(e.id));
+  state.history = [...state.history, ...fresh].sort((a, b) => b.ts - a.ts).slice(0, LOG_MAX);
+  store.set('history', state.history);
+  renderLog();
+  const skipped = list.length - fresh.length;
+  toast(`${fresh.length} ${fresh.length === 1 ? 'rapport' : 'rapporter'} importerade${skipped ? `, ${skipped} fanns redan eller var trasiga` : ''}.`);
+}
+
+// Händelser
+document.addEventListener('input', e => {
+  const t = e.target; const fm = form();
+  if (t.id === 'setMe' || t.id === 'setTo') {
+    const v = t.value.trim().toUpperCase();
+    state[t.id === 'setMe' ? 'me' : 'to'] = v || (t.id === 'setMe' ? 'EA' : 'AN');
+    store.set('me', state.me); store.set('to', state.to);
+    $('callsBtn').textContent = `${state.me} → ${state.to}`;
+    return;
+  }
+  if (!fm) return;
+  const d = draft(fm.id);
+  if (t.dataset.k) { d[t.dataset.k] = t.value; touch(fm); if (t.dataset.k.endsWith('lim')) { const pos = t.selectionStart; renderForm(); const n = document.querySelector(`[data-k="${t.dataset.k}"]`); n.focus(); n.setSelectionRange(pos, pos); } }
+  if (t.dataset.v) { d[t.dataset.v][+t.dataset.j][t.dataset.f] = t.value; touch(fm); }
+});
+
+document.addEventListener('click', e => {
+  const b = e.target.closest('button'); if (!b) return;
+  const fm = form(); const d = fm && draft(fm.id);
+  if (b.dataset.tab) { state.tab = b.dataset.tab; store.set('tab', state.tab); render(); window.scrollTo(0, 0); return; }
+  if (b.id === 'callsBtn') { const s = $('settings'); s.hidden = !s.hidden; b.setAttribute('aria-expanded', !s.hidden); return; }
+  if (b.id === 'nightBtn') { state.night = !state.night; store.set('night', state.night); renderTop(); return; }
+  if (b.dataset.act === 'export') { exportLog(); return; }
+  if (b.dataset.act === 'import') { $('importFile').value = ''; $('importFile').click(); return; }
+  if (b.dataset.act === 'clear-example') { state.drafts[fm.id] = {}; saveDrafts(); renderForm(); return; }
+  if (b.dataset.chip !== undefined) {
+    const k = b.dataset.k; let c = fillChip(b.dataset.chip);
+    let cur = (d[k] || '').replace(/\s+$/, ''); const trailing = /\s$/.test(d[k] || '');
+    if (!cur) cur = c;
+    else if (trailing || /[,]$/.test(cur)) cur = cur + ' ' + c;
+    else if (/^[A-ZÅÄÖ0-9]/.test(c)) cur = (/[.!?]$/.test(cur) ? cur : cur + '.') + ' ' + c;
+    else cur = cur + ', ' + c;
+    d[k] = cur; touch(fm); renderForm();
+    const ta = document.querySelector(`[data-k="${k}"]`); if (ta && ta.tagName === 'TEXTAREA') { ta.focus(); ta.setSelectionRange(ta.value.length, ta.value.length); }
+    return;
+  }
+  if (b.dataset.step) { const k = b.dataset.k; d[k] = Math.max(0, (parseInt(d[k], 10) || 0) + +b.dataset.step); touch(fm); renderForm(); return; }
+  if (b.dataset.c) { d[b.dataset.k] = d[b.dataset.k] === b.dataset.c ? '' : b.dataset.c; touch(fm); renderForm(); return; }
+  if (b.dataset.vadd) { d[b.dataset.vadd].push({}); touch(fm); renderForm(); return; }
+  if (b.dataset.vdel) { d[b.dataset.vdel].splice(+b.dataset.j, 1); touch(fm); renderForm(); return; }
+  if (b.dataset.open) {
+    const e2 = state.history.find(x => x.id === b.dataset.open); if (!e2) return;
+    if (!FORMS.some(f => f.id === e2.form)) { toast('Formuläret finns inte i den här versionen.'); return; }
+    state.drafts[e2.form] = JSON.parse(JSON.stringify(e2.values)); saveDrafts();
+    state.tab = e2.form; store.set('tab', state.tab); render(); toast('Öppnad som nytt utkast.'); return;
+  }
+  if (b.dataset.del) {
+    if (b.dataset.armed) { state.history = state.history.filter(x => x.id !== b.dataset.del); store.set('history', state.history); renderLog(); toast('Raderad.'); }
+    else { b.dataset.armed = '1'; b.textContent = 'Säker?'; setTimeout(() => { if (b.isConnected) { delete b.dataset.armed; b.textContent = 'Radera'; } }, 3000); }
+    return;
+  }
+});
+$('importFile').addEventListener('change', async e => {
+  const f = e.target.files?.[0]; if (!f) return;
+  try { importLog(await f.text()); } catch { toast('Kunde inte läsa filen.'); }
+});
+
+async function copy(text) {
+  try { await navigator.clipboard.writeText(text); return true; }
+  catch { return false; }
+}
+function copyFallback(text) {
+  const ta = document.createElement('textarea'); ta.value = text; document.body.appendChild(ta); ta.select();
+  let ok = false; try { ok = document.execCommand('copy'); } catch {} ta.remove(); return ok;
+}
+
+$('copyBtn').addEventListener('click', async () => {
+  const fm = form(); const text = writtenText(fm, draft(fm.id));
+  const ok = (await copy(text)) || copyFallback(text);
+  if (addToLog(true)) toast(ok ? 'Kopierad och sparad i loggen.' : 'Kunde inte kopiera. Rapporten är sparad i loggen.');
+});
+$('saveBtn').addEventListener('click', () => { if (addToLog(false)) toast('Sparad i loggen.'); });
+$('clearBtn').addEventListener('click', e => {
+  const b = e.currentTarget;
+  if (b.dataset.armed) { state.drafts[form().id] = {}; saveDrafts(); renderForm(); delete b.dataset.armed; b.textContent = 'Rensa'; b.classList.remove('danger'); toast('Rensad.'); return; }
+  b.dataset.armed = '1'; b.textContent = 'Säker?'; b.classList.add('danger');
+  setTimeout(() => { delete b.dataset.armed; b.textContent = 'Rensa'; b.classList.remove('danger'); }, 3000);
+});
+
+// Radioläge, och uppläsning av instruktioner
+let wake = null;
+function renderSpoken() {
+  const fm = form(); const lines = spokenLines(fm, draft(fm.id), $('labelsToggle').checked);
+  $('spoken').innerHTML = lines.map(l => `<li class="${l.call ? 'call' : ''}">${l.lab ? `<span class="lab">${esc(l.lab)}</span>` : ''}${esc(l.t)}</li>`).join('');
+}
+$('radioBtn').addEventListener('click', async () => {
+  const fm = form();
+  $('radioTitle').textContent = isReport(fm) ? `${fm.title} på radio` : fm.title;
+  $('rSent').textContent = isReport(fm) ? 'Sänt, spara' : 'Givet, spara';
+  $('labelsToggle').checked = store.get('labels.' + fm.id, fm.labels);
+  renderSpoken(); $('radio').hidden = false;
+  try { wake = await navigator.wakeLock?.request('screen'); } catch {}
+});
+$('labelsToggle').addEventListener('change', () => { store.set('labels.' + form().id, $('labelsToggle').checked); renderSpoken(); });
+const closeRadio = () => { $('radio').hidden = true; try { wake?.release(); } catch {} wake = null; };
+$('rClose').addEventListener('click', closeRadio);
+$('rSent').addEventListener('click', () => { if (addToLog(true)) { closeRadio(); toast('Sparad i loggen.'); } });
+$('rCopy').addEventListener('click', async () => {
+  const fm = form(); const text = spokenLines(fm, draft(fm.id), $('labelsToggle').checked).map(l => (l.lab ? l.lab + ': ' : '') + l.t).join('\n');
+  toast((await copy(text)) || copyFallback(text) ? 'Kopierad.' : 'Kunde inte kopiera.');
+});
+document.addEventListener('keydown', e => { if (e.key === 'Escape' && !$('radio').hidden) closeRadio(); });
+
+// Offline: service worker när sidan ligger på en egen webbplats (GitHub Pages eller lokalt).
+if ('serviceWorker' in navigator && (location.hostname.endsWith('github.io') || location.hostname === 'localhost')) {
+  navigator.serviceWorker.register('sw.js').catch(() => {});
+}
+
+render();
+</script>
+</body>
+</html>
