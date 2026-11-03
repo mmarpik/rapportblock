@@ -16,6 +16,14 @@ FORS, BSÖ och 7S/8S ligger som knappar. Övriga finns i menyn **Fler**.
 | Instruktioner (sägs till soldaterna) | OBO, Marschorder, ERER/EKER, EOBUSARE, BSÖ, OBSLÖSA |
 | Kontroll | 8F |
 
+## Visa och skicka med QR-kod
+
+- **Visa** visar rapporten i stor text, så att någon kan läsa på din skärm. **QR-kod** gör om den till en kod.
+- Mottagaren väljer **Logg → Läs QR** och riktar kameran mot koden. Rapporten sparas i loggen som mottagen och kan visas, öppnas eller läsas upp. Går kameran inte att använda kan man välja en bild på koden.
+- Koden innehåller vanlig text, så den går också att läsa med telefonens kamera.
+- Långa rapporter ger täta koder. Håll telefonerna nära varandra. Högst cirka 1 500 tecken.
+- Den som ser skärmen kan skanna koden. Visa den bara för den som ska ha rapporten.
+
 ## Installera på telefonen
 
 1. Öppna länken i Chrome (Android) eller Safari (iPhone).
@@ -31,3 +39,5 @@ Skriv inte in hemliga uppgifter, till exempel lösen.
 ## Teknik
 
 En enda HTML-fil utan byggsteg, plus `sw.js` för offline och `manifest.webmanifest` för installation. Formulären definieras som data i `FORMS` i `index.html`. Höj `CACHE` i `sw.js` när filerna ändras.
+
+QR-biblioteken ligger inbäddade sist i `index.html`, så att de fungerar offline: [qrcode-generator](https://github.com/kazuhikoarase/qrcode-generator) 1.4.4 (MIT) och [jsQR](https://github.com/cozmo/jsQR) 1.4.0 (Apache-2.0).
