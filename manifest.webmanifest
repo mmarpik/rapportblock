@@ -1,7 +1,7 @@
 {
   "name": "Rapportblock",
   "short_name": "Rapportblock",
-  "description": "FORS, 7S/8S, PEDARS, OBO, BSÖ, OBSLÖSA, ERER/EKER, EOBUSARE och 8F i fickformat.",
+  "description": "FORS, 7S/8S, PEDARS, OBO, marschorder, BSÖ, OBSLÖSA, ERER/EKER, EOBUSARE och 8F i fickformat.",
   "lang": "sv",
   "start_url": "./",
   "scope": "./",

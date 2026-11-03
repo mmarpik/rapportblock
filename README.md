@@ -13,7 +13,7 @@ FORS, BSÖ och 7S/8S ligger som knappar. Övriga finns i menyn **Fler**.
 | Grupp | Formulär |
 |---|---|
 | Rapporter (sänds på radio) | FORS, 7S/8S, PEDARS |
-| Instruktioner (sägs till soldaterna) | OBO, ERER/EKER, EOBUSARE, BSÖ, OBSLÖSA |
+| Instruktioner (sägs till soldaterna) | OBO, Marschorder, ERER/EKER, EOBUSARE, BSÖ, OBSLÖSA |
 | Kontroll | 8F |
 
 ## Installera på telefonen
