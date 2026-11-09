@@ -341,7 +341,7 @@ const FORMS = [
     id: '7S', title: '7S/8S', group: 'rapport', desc: 'Spaningsrapport. Med Sedan blir det 8S. Drönare rapporteras också enligt 8S.',
     intro: 'Spaningsrapport', labels: false,
     fields: [
-      { key: 'S', label: 'Stund', say: 'Stund', hint: 'Tidsnummer (DDTTMM) för observationen.', chips: ['{tnr}', '{tnr-5}', '{tnr-15}'] },
+      { key: 'S', label: 'Stund', say: 'Stund', hint: 'Tidsnummer (DDHHmm) för observationen.', prefill: '{nu}', chips: ['{tnr}', '{tnr-5}', '{tnr-15}'] },
       { key: 'S', label: 'Ställe', say: 'Ställe', hint: 'Från UPK eller känd plats.', pos: 'mal',
         chips: ['UPK ', 'meter ', 'norr om ', 'söder om ', 'öster om ', 'väster om ', 'vägen '] },
       { key: 'S', label: 'Styrka', say: 'Styrka', hint: 'Bara antal. Vad det är anges i Slag.', chips: ['1', '2', '3', '4', '5', '6', '8', '10', 'cirka '] },
@@ -550,7 +550,7 @@ const isReport = fm => fm.group === 'rapport';
 const recvFor = (fm, d = draft(fm.id)) => isReport(fm) ? (d.__to || state.to) : '';
 const callList = s => [...new Set(s.toUpperCase().split(/[\s,;]+/).filter(Boolean))];
 const clock = (d = new Date()) => d.toLocaleTimeString('sv-SE', { hour: '2-digit', minute: '2-digit' }).replace(':', '.');
-// Tidsnummer DDTTMM, valfritt bakåt i minuter.
+// Tidsnummer DDHHmm, valfritt bakåt i minuter.
 const tnrAt = d => { const p = n => String(n).padStart(2, '0'); return p(d.getDate()) + p(d.getHours()) + p(d.getMinutes()); };
 const tnr = (back = 0) => tnrAt(new Date(Date.now() - back * 60000));
 const fillChip = c => c.replace(/\{me\}/g, state.me).replace('{nu}', 'Klockan är ' + clock())
@@ -703,6 +703,14 @@ function renderForm() {
   if (d.__example) h += `<span class="pill example">Exempel</span><button class="linkbtn" data-act="clear-example">Töm exemplet</button>`;
   h += `<p>${esc(fm.desc)}</p></div>`;
   applyKart(fm, d);
+  // Utgångsvärde (prefill) en gång per formulär. Skriver aldrig över text, och tömt fält fylls inte på igen.
+  fm.fields.forEach((f, i) => {
+    const k = 'f' + i;
+    if (!f.prefill || d['__pf' + k]) return;
+    d['__pf' + k] = 1;
+    if (!(d[k] || '').trim()) d[k] = fillChip(f.prefill);
+    saveDrafts();
+  });
   if (state.kart) h += `<p class="hint">Positioner från kartan kl ${clock(new Date(state.kart.ts))} · <button class="linkbtn" data-act="kart-clear">Rensa</button></p>`;
   if (isReport(fm)) {
     const to = recvFor(fm, d);
