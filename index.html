@@ -341,7 +341,7 @@ const FORMS = [
     id: '7S', title: '7S/8S', group: 'rapport', desc: 'Spaningsrapport. Med Sedan blir det 8S. Drönare rapporteras också enligt 8S.',
     intro: 'Spaningsrapport', labels: false,
     fields: [
-      { key: 'S', label: 'Stund', say: 'Stund', hint: 'Tidsnummer (DDHHmm) för observationen.', prefill: '{nu}', chips: ['{tnr}', '{tnr-5}', '{tnr-15}'] },
+      { key: 'S', label: 'Stund', say: 'Stund', hint: 'Tidsnummer (DDHHmm) för observationen.', prefill: '{tnr}', chips: ['{tnr-5}', '{tnr-15}', '{nu}'] },
       { key: 'S', label: 'Ställe', say: 'Ställe', hint: 'Från UPK eller känd plats.', pos: 'mal',
         chips: ['UPK ', 'meter ', 'norr om ', 'söder om ', 'öster om ', 'väster om ', 'vägen '] },
       { key: 'S', label: 'Styrka', say: 'Styrka', hint: 'Bara antal. Vad det är anges i Slag.', chips: ['1', '2', '3', '4', '5', '6', '8', '10', 'cirka '] },
@@ -516,7 +516,8 @@ const EXAMPLE_PEDARS = {
 };
 const has = v => v !== undefined && v !== null && v !== '';
 const LOG_MAX = 500;
-const HOSTED = location.hostname.endsWith('github.io') || location.hostname === 'localhost';
+// Publicerad (GitHub Pages, rapport.mazilla.se) eller lokalt test. Inte en fil som öppnats direkt.
+const HOSTED = location.protocol === 'https:' || location.hostname === 'localhost';
 
 // Lagring. Allt ligger i den här webbläsaren.
 const store = {
