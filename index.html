@@ -135,6 +135,16 @@ textarea:focus, input:focus, button:focus-visible { outline: 2px solid var(--acc
   border: 1px solid var(--line); border-radius: 99px; padding: 6px 12px; cursor: pointer; white-space: nowrap;
 }
 .chips button:active { background: var(--accent); color: var(--accent-fg); }
+.pad { display: flex; flex-direction: column; gap: 10px; padding-block: 12px; border-top: 1px solid var(--line); }
+.padtop { display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; }
+.padtop .hint, .padcat > .hint { font-size: 13px; color: var(--muted); }
+.padcat { display: flex; flex-direction: column; gap: 4px; }
+.padwords { display: flex; flex-wrap: wrap; gap: 6px; }
+.padwords button {
+  font: 500 16px var(--font-body); color: var(--fg); background: var(--chip);
+  border: 1px solid var(--line); border-radius: 8px; padding: 10px 14px; min-height: 44px; cursor: pointer;
+}
+.padwords button:active { background: var(--accent); color: var(--accent-fg); }
 
 .counts { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
 .count { display: flex; flex-direction: column; gap: 4px; }
@@ -477,6 +487,15 @@ const FORMS = [
     ],
   },
   {
+    id: 'ORDER', title: 'Order', group: 'mottagning', desc: 'Anteckningar när du tar emot order. Tre ytor. Knapparna sätter in ord i den yta du senast skrev i.',
+    labels: true, pad: true,
+    fields: [
+      { key: '1', label: 'Orientering', say: 'Orientering' },
+      { key: '3', label: 'Beslut', say: 'Beslut' },
+      { key: 'O', label: 'Order', say: 'Order' },
+    ],
+  },
+  {
     id: '8F', title: '8F', group: 'kontroll', desc: 'Kontroll av eldställning eller stridsställning. Bocka av eller skriv bristen.',
     labels: true,
     fields: [
@@ -492,8 +511,14 @@ const FORMS = [
     ].map(([label, hint], i) => ({ key: i < 8 ? 'F' : '3D', small: i === 8, label, say: label, hint, chips: ['OK', 'Brist: ', 'Ej aktuellt'] })),
   },
 ];
-const GROUPS = ['rapport', 'instruktion', 'kontroll'];
-const GROUP_NAMES = { rapport: 'Rapporter', instruktion: 'Instruktioner', kontroll: 'Kontroll' };
+const GROUPS = ['rapport', 'instruktion', 'kontroll', 'mottagning'];
+const GROUP_NAMES = { rapport: 'Rapporter', instruktion: 'Instruktioner', kontroll: 'Kontroll', mottagning: 'Mottagning' };
+// Knappar i orderpaden. Varje användare ändrar sina egna kategorier i appen.
+const PAD_DEFAULT = [
+  { name: 'Enhet', words: ['Grupp', 'EA', 'Pluton', 'AN'] },
+  { name: 'Riktning/plats', words: ['Norr', 'Söder', 'Öster', 'Väster', 'Åsen', 'Höjden', 'Skogsbrynet'] },
+  { name: 'Verksamhet', words: ['Spaning', 'Anfall', 'Försvar', 'Förflyttning', 'Vila'] },
+];
 const QUICK = ['FORS', 'BSÖ', '7S'];
 const COLORS = { gront: 'Grönt', gult: 'Gult', rott: 'Rött' };
 const EXAMPLE = {
@@ -535,6 +560,9 @@ const state = {
   mine: store.get('mine', null),
   recv: store.get('recv', null),
   kart: store.get('kart', null),
+  // Orderpaden: kategorier, och om man knappar eller skriver. padField/padPos gäller aktiv yta, och sparas inte.
+  pad: store.get('pad', PAD_DEFAULT),
+  padMode: store.get('padMode', 'knappar'),
 };
 if (!state.mine) state.mine = state.me === 'EA' ? ['EA', 'EA2'] : [state.me];
 if (!state.recv) state.recv = state.to === 'AN' ? ['AN', 'AN2'] : [state.to];
@@ -698,6 +726,26 @@ function posChips(f, i, d) {
     `<button data-kpos="${f.pos}" data-kkey="${key}" aria-pressed="${posText(v[key]) === d['__pt' + k]}">${esc(posText(v[key]))}</button>`).join('')}</div>`;
 }
 
+const parsePad = s => s.split('\n').map(l => {
+  const i = l.indexOf(':'); const name = i < 0 ? '' : l.slice(0, i).trim();
+  const words = i < 0 ? [] : l.slice(i + 1).split(',').map(w => w.trim()).filter(Boolean);
+  return name && words.length ? { name, words } : null;
+}).filter(Boolean);
+// Orderpaden under ytorna. Knappläge eller skriv-läge, och kategorierna kan ändras här.
+function renderPad(fm) {
+  const k = state.padField || 'f0';
+  const top = `<div class="padtop"><span class="hint">Sätts in i: <strong id="padTarget">${esc(fm.fields[+k.slice(1)]?.label || '')}</strong></span>
+    <button class="linkbtn" data-act="pad-mode">${state.padMode === 'knappar' ? 'Skriv i stället' : 'Visa knappar'}</button>
+    <button class="linkbtn" data-act="pad-edit">${state.padEdit ? 'Stäng' : 'Ändra knappar'}</button></div>`;
+  if (state.padEdit) return `<section class="pad" aria-label="Knappar">${top}
+    <textarea id="padEdit" aria-label="Knappar per kategori">${esc(state.pad.map(c => `${c.name}: ${c.words.join(', ')}`).join('\n'))}</textarea>
+    <p class="hint">En rad per kategori: Namn: ord, ord, ord.</p>
+    <div class="chips"><button data-act="pad-save">Spara knappar</button><button data-act="pad-reset">Återställ standard</button></div></section>`;
+  if (state.padMode !== 'knappar') return `<section class="pad" aria-label="Knappar">${top}</section>`;
+  return `<section class="pad" aria-label="Knappar">${top}${state.pad.map(c => `<div class="padcat"><span class="hint">${esc(c.name)}</span>
+    <div class="padwords">${c.words.map(w => `<button data-padword="${esc(w)}">${esc(w)}</button>`).join('')}</div></div>`).join('')}</section>`;
+}
+
 function renderForm() {
   const fm = form(); const d = draft(fm.id);
   let h = `<div class="formhead"><h2>${esc(fm.title)}</h2>`;
@@ -755,6 +803,7 @@ function renderForm() {
     if (f.chips) h +=`<div class="chips">${f.chips.map(c => `<button data-chip="${esc(c)}" data-k="${k + (f.chipsTo || '')}">${esc(chipLabel(c))}</button>`).join('')}</div>`;
     h += `</div></div>`;
   });
+  if (fm.pad) h += renderPad(fm);
   $('main').innerHTML = h;
   $('radioBtn').textContent = isReport(fm) ? 'Radio' : 'Läs upp';
 }
@@ -847,6 +896,17 @@ document.addEventListener('input', e => {
   if (t.dataset.v) { d[t.dataset.v][+t.dataset.j][t.dataset.f] = t.value; touch(fm, t.dataset.v); }
 });
 
+// Aktiv yta för orderpaden. Markören sparas när man lämnar ytan, så att knappen sätter in ordet rätt.
+document.addEventListener('focusin', e => {
+  const t = e.target; const fm = form();
+  if (t.tagName !== 'TEXTAREA' || !t.dataset.k || !fm?.pad) return;
+  state.padField = t.dataset.k; state.padPos = t.selectionStart;
+  const lab = $('padTarget'); if (lab) lab.textContent = fm.fields[+t.dataset.k.slice(1)]?.label || '';
+});
+document.addEventListener('focusout', e => {
+  const t = e.target; const fm = form();
+  if (t.tagName === 'TEXTAREA' && t.dataset.k && fm?.pad) state.padPos = t.selectionStart;
+});
 document.addEventListener('click', e => {
   const b = e.target.closest('button'); if (!b) return;
   const fm = form(); const d = fm && draft(fm.id);
@@ -865,6 +925,26 @@ document.addEventListener('click', e => {
     setPosText(d, k, posText(state.kart[b.dataset.kpos][b.dataset.kkey])); touch(fm, k); renderForm(); return;
   }
   if (b.dataset.act === 'kart-clear') { state.kart = null; store.set('kart', null); render(); return; }
+  if (b.dataset.padword !== undefined) {
+    // Sätter in ordet vid markören i aktiv yta. Ingen omritning, så att ytan behåller sin plats.
+    const k = state.padField || 'f0'; const cur = d[k] || '';
+    const pos = Math.min(state.padPos ?? cur.length, cur.length);
+    const before = cur.slice(0, pos); const after = cur.slice(pos);
+    const ins = (before && !/\s$/.test(before) ? ' ' : '') + b.dataset.padword + ' ';
+    d[k] = before + ins + after; touch(fm, k);
+    const ta = document.querySelector(`textarea[data-k="${k}"]`);
+    if (ta) { ta.value = d[k]; ta.setSelectionRange(pos + ins.length, pos + ins.length); }
+    state.padPos = pos + ins.length;
+    return;
+  }
+  if (b.dataset.act === 'pad-mode') { state.padMode = state.padMode === 'knappar' ? 'skriv' : 'knappar'; store.set('padMode', state.padMode); renderForm(); return; }
+  if (b.dataset.act === 'pad-edit') { state.padEdit = !state.padEdit; renderForm(); return; }
+  if (b.dataset.act === 'pad-save') {
+    const cats = parsePad($('padEdit').value);
+    if (!cats.length) { toast('Ingen kategori att spara. Skriv "Namn: ord, ord".'); return; }
+    state.pad = cats; store.set('pad', cats); state.padEdit = false; renderForm(); toast('Knapparna är sparade.'); return;
+  }
+  if (b.dataset.act === 'pad-reset') { state.pad = PAD_DEFAULT; store.set('pad', PAD_DEFAULT); state.padEdit = false; renderForm(); toast('Standardknapparna är tillbaka.'); return; }
   if (b.dataset.chip !== undefined) {
     const k = b.dataset.k; let c = fillChip(b.dataset.chip);
     let cur = (d[k] || '').replace(/\s+$/, ''); const trailing = /\s$/.test(d[k] || '');
