@@ -393,6 +393,21 @@ const FORMS = [
     ],
   },
   {
+    id: 'PLOBO', title: 'Ta emot OBO', group: 'instruktion', desc: 'Plutonchefens OBO, som du tar emot. Skapa grupp-OBO fyller OBO-formuläret, som du sedan redigerar.',
+    labels: true,
+    fields: [
+      { key: 'K', label: 'Kompaniets uppgift', say: 'Kompaniets uppgift', hint: 'Valfri. Lämnas tom om den inte finns.' },
+      { key: 'P', label: 'Plutonens uppgift', say: 'Plutonens uppgift', hint: 'Plutonens uppgift och syfte.' },
+      { key: 'T', small: true, label: 'Tidgivning och terräng', say: 'Tid och terräng', hint: 'Jämför klockor. Peka ut terrängen.' },
+      { key: '1', label: 'Orientering', say: 'Orientering', hint: 'Motståndaren, civila, sidoförband, understöd, terräng, sikt.' },
+      { key: '3', label: 'Beslut', say: 'Beslut', hint: 'Plutonens genomförandeidé.' },
+      { key: 'O', label: 'Order', say: 'Order', hint: 'En rad per grupp: "1:a grupp: …", "2:a grupp: …" och "Alla: …".',
+        chips: ['1:a grupp: ', '2:a grupp: ', 'Alla: '] },
+      { key: '4', label: 'Uthållighet', say: 'Uthållighet', hint: 'Ammunition, sjukvård, samlingsplats för skadade, ÅSA.' },
+      { key: '5', label: 'Ledning', say: 'Ledning', hint: 'Var du är, vem som ersätter dig, samband.' },
+    ],
+  },
+  {
     id: 'OBO', title: 'OBO', group: 'instruktion', desc: 'Order till gruppen. Peka i terrängen. Beslut i futurum, order i presens.',
     labels: true, outro: 'Frågor?',
     fields: [
@@ -679,6 +694,48 @@ function parseQr(text) {
   return { fm, values, tnr: m[2], me: m[3], to: m[4] || '' };
 }
 
+// Ta emot OBO → grupp-OBO. Plutonens rader "1:a grupp: …", "2:a grupp: …" och "Alla: …" delas upp här.
+function orderLines(text) {
+  const out = {}; let cur = null;
+  for (const line of (text || '').replace(/\r/g, '').split('\n')) {
+    const m = /^\s*(?:(\d+):a grupp|(Alla))\s*:\s*(.*)$/i.exec(line);
+    if (m) { cur = m[2] ? 'alla' : Number(m[1]); out[cur] = m[3].trim(); }
+    else if (cur !== null && line.trim()) out[cur] = (out[cur] + ' ' + line.trim()).trim();
+  }
+  return out;
+}
+// Fyller OBO-utkastet från plutonens OBO. Egen grupp = första bokstaven i signalen (FA → F = grupp 2).
+// Skriver aldrig över en ifylld OBO utan bekräftelse (andra klicket). Redigerbart efteråt.
+function makeGroupObo(b, d) {
+  const n = 'EFGHIJKLM'.indexOf((state.me || '').charAt(0).toUpperCase()) + 1;
+  if (!n) { toast('Signalen måste börja med grupp-bokstav E–M, till exempel FA.'); return; }
+  const ob = draft('OBO');
+  const filled = Object.keys(ob).some(k => /^f\d+$/.test(k) && (ob[k] || '').trim());
+  if (filled && !b.dataset.armed) {
+    b.dataset.armed = '1'; b.textContent = 'Skriv över OBO?';
+    setTimeout(() => { if (b.isConnected) { delete b.dataset.armed; b.textContent = 'Skapa grupp-OBO'; } }, 3000);
+    return;
+  }
+  // Fältindex: Ta emot OBO 0 K, 1 P, 2 T, 3 Orientering, 4 Beslut, 5 Order, 6 Uthållighet, 7 Ledning.
+  const v = i => (d['f' + i] || '').trim();
+  const lines = orderLines(v(5));
+  const own = lines[n] || '';
+  if (!own) toast(`Ingen rad för ${n}:a grupp i ordern. Uppgiften lämnas tom.`);
+  // OBO-fält: 0 T, 1 Orientering, 2 Uppgift, 3 Beslut, 4 Order, 5 Uthållighet, 6 Ledning.
+  state.drafts.OBO = {
+    f0: v(2),
+    f1: [sentence(v(0)), sentence(v(1)), sentence(v(3))].filter(Boolean).join(' '),
+    f2: sentence(own),
+    f3: v(4),
+    f4: sentence(lines.alla || ''),
+    f5: v(6),
+    f6: v(7),
+  };
+  saveDrafts();
+  state.tab = 'OBO'; store.set('tab', state.tab); render(); window.scrollTo(0, 0);
+  toast(`Grupp-OBO skapad för ${n}:a grupp. Granska och redigera.`);
+}
+
 // Formulär
 // Positioner från Karttjänst (state.kart). Två roller: 'vi' = egen position (FORS F), 'mal' = observerad plats (7S Ställe).
 // Fält märks med pos i FORMS. Ordning i chipsen och förvalet: förenklad relativ, sedan MGRS, sedan relativ i streck.
@@ -751,6 +808,7 @@ function renderForm() {
   let h = `<div class="formhead"><h2>${esc(fm.title)}</h2>`;
   if (d.__example) h += `<span class="pill example">Exempel</span><button class="linkbtn" data-act="clear-example">Töm exemplet</button>`;
   h += `<p>${esc(fm.desc)}</p></div>`;
+  if (fm.id === 'PLOBO') h += `<p><button class="btn primary" data-act="make-grp-obo">Skapa grupp-OBO</button></p>`;
   applyKart(fm, d);
   // Utgångsvärde (prefill) en gång per formulär. Skriver aldrig över text, och tömt fält fylls inte på igen.
   fm.fields.forEach((f, i) => {
@@ -920,6 +978,7 @@ document.addEventListener('click', e => {
   if (b.dataset.act === 'export') { exportLog(); return; }
   if (b.dataset.act === 'import') { $('importFile').value = ''; $('importFile').click(); return; }
   if (b.dataset.act === 'clear-example') { state.drafts[fm.id] = {}; saveDrafts(); renderForm(); return; }
+  if (b.dataset.act === 'make-grp-obo') { makeGroupObo(b, d); return; }
   if (b.dataset.kkey !== undefined) {
     const k = 'f' + fm.fields.findIndex(f => f.pos === b.dataset.kpos);
     setPosText(d, k, posText(state.kart[b.dataset.kpos][b.dataset.kkey])); touch(fm, k); renderForm(); return;
