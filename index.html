@@ -654,7 +654,15 @@ function parseQr(text) {
 // Positioner från Karttjänst (state.kart). Två roller: 'vi' = egen position (FORS F), 'mal' = observerad plats (7S Ställe).
 // Fält märks med pos i FORMS. Ordning i chipsen och förvalet: förenklad relativ, sedan MGRS, sedan relativ i streck.
 const POS_ORDER = ['upk_ord', 'mig_ord', 'abs', 'upk', 'mig'];
+// Chipsordning efter förvalet: ord, sedan streck, sedan absolut.
+const POS_CHIPS = ['upk_ord', 'mig_ord', 'upk', 'mig', 'abs'];
+// Giltiga värden för vi_val och mal_val från Karttjänst.
+const POS_PICK = ['upk_ord', 'mig_ord', 'upk', 'abs'];
 const KART_MAX_AGE = 12 * 3600e3;
+// {me} i karttexten blir namnet under Jag är, annars "mig".
+const posText = t => t.replace(/\{me\}/g, state.me || 'mig');
+// Vilken variant som förifylls: Karttjänsts val om det finns och är med, annars standardordningen.
+const pickKey = (kart, role, v) => (kart[role + '_val'] && v[kart[role + '_val']]) ? kart[role + '_val'] : POS_ORDER.find(key => v[key]);
 function posVariants(p, pre) {
   const all = { abs: p.get(pre), upk: p.get(pre + '_upk'), mig: p.get(pre + '_mig'), upk_ord: p.get(pre + '_upk_ord'), mig_ord: p.get(pre + '_mig_ord') };
   return Object.fromEntries(Object.entries(all).filter(([, t]) => (t || '').trim()));
@@ -668,21 +676,25 @@ function setPosText(d, k, txt) {
   d['__pt' + k] = txt;
 }
 // Förifyllning: ord-varianten om den finns, annars den absoluta. Görs en gång per länk och skriver aldrig över text.
+// Ny länk ersätter den förra förifyllningen om fältet fortfarande har exakt den texten. Ändrad text lämnas.
 function applyKart(fm, d) {
   const kart = state.kart; if (!kart || d.__posTs === kart.ts) return;
   d.__posTs = kart.ts;
   fm.fields.forEach((f, i) => {
     const v = f.pos && kart[f.pos]; const k = 'f' + i;
-    if (!v || (d[k] || '').trim()) return;
-    const first = POS_ORDER.find(key => v[key]);
-    if (first) { d[k] = v[first]; d['__pt' + k] = v[first]; }
+    if (!v) return;
+    const cur = d[k] || ''; const old = d['__pt' + k];
+    const pick = pickKey(kart, f.pos, v); if (!pick) return;
+    const t = posText(v[pick]);
+    if (!cur.trim() || (old !== undefined && cur === old)) { d[k] = t; d['__pt' + k] = t; }
   });
   saveDrafts();
 }
 function posChips(f, i, d) {
-  const k = 'f' + i; const v = state.kart[f.pos];
-  return `<div class="chips postchips" role="group" aria-label="Position från kartan">${POS_ORDER.filter(key => v[key]).map(key =>
-    `<button data-kpos="${f.pos}" data-kkey="${key}" aria-pressed="${v[key] === d['__pt' + k]}">${esc(v[key])}</button>`).join('')}</div>`;
+  const k = 'f' + i; const v = state.kart[f.pos]; const pick = pickKey(state.kart, f.pos, v);
+  const keys = [pick, ...POS_CHIPS.filter(key => key !== pick && v[key])];
+  return `<div class="chips postchips" role="group" aria-label="Position från kartan">${keys.map(key =>
+    `<button data-kpos="${f.pos}" data-kkey="${key}" aria-pressed="${posText(v[key]) === d['__pt' + k]}">${esc(posText(v[key]))}</button>`).join('')}</div>`;
 }
 
 function renderForm() {
@@ -730,7 +742,7 @@ function renderForm() {
     } else {
       h += `<textarea id="${fm.id}-${k}" data-k="${k}">${esc(d[k] || '')}</textarea>`;
     }
-    if (f.pos && state.kart?.[f.pos]) h += posChips(f, i, d);
+    if (f.pos && Object.keys(state.kart?.[f.pos] || {}).length) h += posChips(f, i, d);
     if (f.chips) h +=`<div class="chips">${f.chips.map(c => `<button data-chip="${esc(c)}" data-k="${k + (f.chipsTo || '')}">${esc(chipLabel(c))}</button>`).join('')}</div>`;
     h += `</div></div>`;
   });
@@ -841,7 +853,7 @@ document.addEventListener('click', e => {
   if (b.dataset.act === 'clear-example') { state.drafts[fm.id] = {}; saveDrafts(); renderForm(); return; }
   if (b.dataset.kkey !== undefined) {
     const k = 'f' + fm.fields.findIndex(f => f.pos === b.dataset.kpos);
-    setPosText(d, k, state.kart[b.dataset.kpos][b.dataset.kkey]); touch(fm, k); renderForm(); return;
+    setPosText(d, k, posText(state.kart[b.dataset.kpos][b.dataset.kkey])); touch(fm, k); renderForm(); return;
   }
   if (b.dataset.act === 'kart-clear') { state.kart = null; store.set('kart', null); render(); return; }
   if (b.dataset.chip !== undefined) {
@@ -1075,12 +1087,15 @@ function takeKarta() {
   history.replaceState(null, '', location.pathname + location.search);
   const vi = posVariants(p, 'vi'), mal = posVariants(p, 'mal');
   if (!Object.keys(vi).length && !Object.keys(mal).length) { toast('Kartlänken innehöll ingen position.'); return true; }
-  state.kart = { ts: Date.now(), vi, mal }; store.set('kart', state.kart);
+  const pick = n => POS_PICK.includes(p.get(n)) ? p.get(n) : null;
+  state.kart = { ts: Date.now(), vi, mal, vi_val: pick('vi_val'), mal_val: pick('mal_val') }; store.set('kart', state.kart);
   toast('Positioner från kartan mottagna. Välj blankett.');
   return true;
 }
 takeKarta();
 window.addEventListener('hashchange', () => { if (takeKarta()) render(); });
+// Installerad app som redan är öppen: en ny länk kan komma utan hashchange, så kollen görs även när sidan visas igen.
+document.addEventListener('visibilitychange', () => { if (!document.hidden && takeKarta()) render(); });
 
 // Offline: service worker när sidan ligger på en egen webbplats (GitHub Pages eller lokalt).
 if ('serviceWorker' in navigator && HOSTED) {
