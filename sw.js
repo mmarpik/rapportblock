@@ -1,5 +1,5 @@
 // Offline-cache för Rapportblock. Höj versionen när filerna ändras.
-const CACHE = 'rapportblock-v5';
+const CACHE = 'rapportblock-v8';
 const FILES = ['./', './index.html', './manifest.webmanifest', './icon-192.png', './icon-512.png'];
 
 self.addEventListener('install', e => {
@@ -18,9 +18,16 @@ self.addEventListener('fetch', e => {
   const req = e.request;
   if (req.method !== 'GET') return;
   if (req.mode === 'navigate') {
-    e.respondWith(fetch(req)
-      .then(res => { const copy = res.clone(); caches.open(CACHE).then(c => c.put('./index.html', copy)); return res; })
-      .catch(() => caches.match('./index.html')));
+    // Nätet får hålla på i bakgrunden och uppdaterar cachen, även när cachen redan svarade.
+    // waitUntil anropas synkront, så att eventet lever kvar även när cachen redan har svarat.
+    const net = fetch(req);
+    e.waitUntil(net.then(res => { const copy = res.clone(); return caches.open(CACHE).then(c => c.put('./index.html', copy)); }).catch(() => {}));
+    e.respondWith(caches.match('./index.html').then(cached => {
+      if (!cached) return net.catch(() => caches.match('./index.html'));
+      // Svag täckning: efter 2,5 s visas den cachade sidan. Nästa start får den nya.
+      const slow = new Promise(r => setTimeout(() => r(cached), 2500));
+      return Promise.race([net, slow]).catch(() => cached);
+    }));
     return;
   }
   e.respondWith(caches.match(req).then(hit => hit || fetch(req).then(res => {

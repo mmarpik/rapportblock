@@ -16,10 +16,18 @@ FORS, BSÖ och 7S/8S ligger som knappar. Övriga finns i menyn **Fler**.
 | Instruktioner (sägs till soldaterna) | OBO, Marschorder, ERER/EKER, EOBUSARE, BSÖ, OBSLÖSA |
 | Kontroll | 8F |
 
+## Anropssignaler
+
+Tryck på signalerna överst (till exempel `EA → AN`).
+
+- **Mina signaler:** dina egna, till exempel `EA, EA2`. Under **Jag är** väljer du den du går som just nu.
+- **Mottagare:** de du rapporterar till, till exempel `AN, AN2`. Under **Min chef** väljer du vem rapporterna går till som standard.
+- I FORS, 7S/8S och PEDARS finns raden **Till** överst. Där kan du byta mottagare för just den rapporten. Rensa går tillbaka till chefen.
+
 ## Visa och skicka med QR-kod
 
 - **Visa** visar rapporten i stor text, så att någon kan läsa på din skärm. **QR-kod** gör om den till en kod.
-- Mottagaren väljer **Logg → Läs QR** och riktar kameran mot koden. Rapporten sparas i loggen som mottagen och kan visas, öppnas eller läsas upp. Går kameran inte att använda kan man välja en bild på koden.
+- Mottagaren trycker på QR-knappen överst (eller **Logg → Läs QR**) och riktar kameran mot koden. Rapporten sparas i loggen som mottagen och kan visas, öppnas eller läsas upp. Går kameran inte att använda kan man välja en bild på koden.
 - Koden innehåller vanlig text, så den går också att läsa med telefonens kamera.
 - Långa rapporter ger täta koder. Håll telefonerna nära varandra. Högst cirka 1 500 tecken.
 - Den som ser skärmen kan skanna koden. Visa den bara för den som ska ha rapporten.

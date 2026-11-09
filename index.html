@@ -98,6 +98,15 @@ nav.tabs select option { background: var(--surface); color: var(--fg); }
 .settings { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; padding-block: 12px; }
 .settings label { display: flex; flex-direction: column; gap: 4px; font-size: 13px; color: var(--muted); }
 .settings input { font: 500 18px var(--font-mono); text-transform: uppercase; }
+.settings .calllist { grid-column: 1 / -1; display: flex; align-items: center; gap: 8px; }
+.settings .calllist > span { flex: 0 0 64px; font-size: 13px; color: var(--muted); }
+.settings .hint { grid-column: 1 / -1; margin: 0; font-size: 13px; color: var(--muted); }
+.chips button[aria-pressed="true"] { background: var(--accent); color: var(--accent-fg); border-color: var(--accent); }
+.tochips { padding-bottom: 8px; }
+.tochips button { font-family: var(--font-mono); }
+#scanBtn { padding: 5px 8px; color: var(--fg); }
+#scanBtn svg { display: block; width: 20px; height: 20px; }
+@media (max-width: 400px) { .brand h1 { font-size: 21px; } .brand { gap: 6px; } }
 
 .formhead { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; padding-block: 14px 6px; }
 .formhead h2 { font: 700 22px var(--font-display); margin: 0; letter-spacing: .03em; }
@@ -228,11 +237,15 @@ textarea:focus, input:focus, button:focus-visible { outline: 2px solid var(--acc
     <div class="brand">
       <h1>Rapportblock</h1>
       <button class="calls" id="callsBtn" aria-expanded="false" aria-controls="settings"></button>
+      <button class="iconbtn" id="scanBtn" title="Läs QR" aria-label="Läs QR"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><rect x="2" y="2" width="6" height="6"/><rect x="12" y="2" width="6" height="6"/><rect x="2" y="12" width="6" height="6"/><path d="M12 12h2v2h-2zM16 16h2v2h-2zM16 12h2M12 16v2" /></svg></button>
       <button class="iconbtn" id="nightBtn" aria-pressed="false" title="Rött ljus för mörker">Mörker</button>
     </div>
     <div class="settings" id="settings" hidden>
-      <label for="setMe">Egen anropssignal<input id="setMe" type="text" autocomplete="off"></label>
-      <label for="setTo">Mottagare<input id="setTo" type="text" autocomplete="off"></label>
+      <div class="calllist"><span>Jag är</span><div class="chips" id="meChips" role="group" aria-label="Jag är"></div></div>
+      <div class="calllist"><span>Min chef</span><div class="chips" id="chefChips" role="group" aria-label="Min chef"></div></div>
+      <label for="setMine">Mina signaler<input id="setMine" type="text" autocomplete="off"></label>
+      <label for="setRecv">Mottagare<input id="setRecv" type="text" autocomplete="off"></label>
+      <p class="hint">Skriv flera med komma. Rapporter går till min chef, men mottagaren kan bytas i varje rapport.</p>
     </div>
     <nav class="tabs" id="tabs" role="tablist"></nav>
   </header>
@@ -314,7 +327,7 @@ const FORMS = [
     id: 'FORS', title: 'FORS', group: 'rapport', desc: 'Lägesrapport. Säg innehållet i ordning, inte rubrikerna.',
     intro: '', labels: false,
     fields: [
-      { key: 'F', label: 'Förbandets position', say: 'Förband', hint: 'Var gruppen är, och styrka.',
+      { key: 'F', label: 'Förbandets position', say: 'Förband', hint: 'Var gruppen är, och styrka.', pos: 'vi',
         chips: ['{me} vid ', 'samlat', 'full styrka', 'i ställning', 'framrycker'] },
       { key: 'O', label: 'Orientering om fienden', say: 'Orientering', hint: 'Vad du vet, inte vad du tror.',
         chips: ['Fienden ej observerad', 'Har observerat ', 'möjlig spaningsgrupp i området', 'på väg österut', 'på väg västerut'] },
@@ -329,7 +342,7 @@ const FORMS = [
     intro: 'Spaningsrapport', labels: false,
     fields: [
       { key: 'S', label: 'Stund', say: 'Stund', hint: 'Tidsnummer (DDTTMM) för observationen.', chips: ['{tnr}', '{tnr-5}', '{tnr-15}'] },
-      { key: 'S', label: 'Ställe', say: 'Ställe', hint: 'Från UPK eller känd plats.',
+      { key: 'S', label: 'Ställe', say: 'Ställe', hint: 'Från UPK eller känd plats.', pos: 'mal',
         chips: ['UPK ', 'meter ', 'norr om ', 'söder om ', 'öster om ', 'väster om ', 'vägen '] },
       { key: 'S', label: 'Styrka', say: 'Styrka', hint: 'Bara antal. Vad det är anges i Slag.', chips: ['1', '2', '3', '4', '5', '6', '8', '10', 'cirka '] },
       { key: 'S', label: 'Slag', say: 'Slag', hint: 'Vad: man, fordon, drönare. Gärna mer detaljer.',
@@ -517,7 +530,13 @@ const state = {
   tab: store.get('tab', 'FORS'),
   drafts: store.get('drafts', null),
   history: store.get('history', []),
+  // Egna signaler (me är den aktiva) och mottagare (to är min chef).
+  mine: store.get('mine', null),
+  recv: store.get('recv', null),
+  kart: store.get('kart', null),
 };
+if (!state.mine) state.mine = state.me === 'EA' ? ['EA', 'EA2'] : [state.me];
+if (!state.recv) state.recv = state.to === 'AN' ? ['AN', 'AN2'] : [state.to];
 if (!state.drafts) state.drafts = { FORS: { ...EXAMPLE } };
 if (!state.drafts.PEDARS) state.drafts.PEDARS = JSON.parse(JSON.stringify(EXAMPLE_PEDARS));
 if (state.tab !== 'Logg' && !FORMS.some(f => f.id === state.tab)) state.tab = 'FORS';
@@ -527,6 +546,9 @@ const form = () => FORMS.find(f => f.id === state.tab);
 const draft = id => (state.drafts[id] ||= {});
 const saveDrafts = () => store.set('drafts', state.drafts);
 const isReport = fm => fm.group === 'rapport';
+// Rapportens mottagare: min chef, om den inte är bytt i just den här rapporten.
+const recvFor = (fm, d = draft(fm.id)) => isReport(fm) ? (d.__to || state.to) : '';
+const callList = s => [...new Set(s.toUpperCase().split(/[\s,;]+/).filter(Boolean))];
 const clock = (d = new Date()) => d.toLocaleTimeString('sv-SE', { hour: '2-digit', minute: '2-digit' }).replace(':', '.');
 // Tidsnummer DDTTMM, valfritt bakåt i minuter.
 const tnrAt = d => { const p = n => String(n).padStart(2, '0'); return p(d.getDate()) + p(d.getHours()) + p(d.getMinutes()); };
@@ -542,9 +564,15 @@ function toast(msg) {
 }
 
 // Rubrik och anropssignaler
-function renderTop() {
+function renderCalls() {
   $('callsBtn').textContent = `${state.me} → ${state.to}`;
-  $('setMe').value = state.me; $('setTo').value = state.to;
+  const chip = (attr, c, on) => `<button data-${attr}="${esc(c)}" aria-pressed="${on}">${esc(c)}</button>`;
+  $('meChips').innerHTML = state.mine.map(c => chip('me', c, c === state.me)).join('');
+  $('chefChips').innerHTML = state.recv.map(c => chip('chef', c, c === state.to)).join('');
+}
+function renderTop() {
+  renderCalls();
+  $('setMine').value = state.mine.join(', '); $('setRecv').value = state.recv.join(', ');
   document.documentElement.dataset.night = state.night ? 'on' : 'off';
   $('nightBtn').setAttribute('aria-pressed', state.night);
   // Snabba formulär som knappar, resten i en meny.
@@ -584,23 +612,23 @@ const sentence = s => { s = s.trim(); if (!s) return ''; s = s[0].toUpperCase() 
 
 // Rapporter ramas in med anrop och "Slut, kom". Instruktioner sägs direkt till soldaterna.
 function spokenLines(fm, d, labels) {
-  const lines = isReport(fm) ? [{ call: true, t: `${state.to} från ${state.me}.` }] : [];
+  const lines = isReport(fm) ? [{ call: true, t: `${recvFor(fm, d)} från ${state.me}.` }] : [];
   if (fm.intro) lines.push({ t: sentence(fm.intro) });
   fm.fields.forEach((f, i) => { const v = fieldText(f, i, d); if (v) lines.push({ lab: labels ? f.say : '', t: sentence(v) }); });
   if (isReport(fm)) lines.push({ call: true, t: 'Slut, kom.' });
   if (fm.outro) lines.push({ call: true, t: fm.outro });
   return lines;
 }
-const nowWho = () => ({ me: state.me, to: state.to, ts: Date.now() });
+const nowWho = (fm, d) => ({ me: state.me, to: recvFor(fm, d), ts: Date.now() });
 const fieldRows = (fm, d) => fm.fields.map((f, i) => { const v = fieldText(f, i, d); return v ? { i, f, v: sentence(v) } : null; }).filter(Boolean);
 const whoText = (fm, w) => isReport(fm) && w.to ? `${w.me} till ${w.to}` : w.me;
 const when = ts => { const t = new Date(ts); return `${t.toLocaleDateString('sv-SE', { day: 'numeric', month: 'short' })} kl ${clock(t)}`; };
-function writtenText(fm, d, w = nowWho()) {
+function writtenText(fm, d, w = nowWho(fm, d)) {
   return [`${fm.title} ${whoText(fm, w)}, ${when(w.ts)}`, ...fieldRows(fm, d).map(r => `${r.f.key} ${r.f.label}: ${r.v}`)].join('\n');
 }
 // QR-kodens text. Läsbar i vilken kameraapp som helst; första raden gör att Rapportblock känner igen den.
 const QR_HEAD = /^Rapportblock (\S+) (\d{6}) (.+?)(?:→(.+))?$/;
-function qrText(fm, d, w = nowWho()) {
+function qrText(fm, d, w = nowWho(fm, d)) {
   const head = `Rapportblock ${fm.id} ${tnrAt(new Date(w.ts))} ${w.me}${isReport(fm) && w.to ? '→' + w.to : ''}`;
   return [head, ...fieldRows(fm, d).map(r => `${r.f.key} ${r.f.label}: ${r.v}`)].join('\n');
 }
@@ -623,11 +651,52 @@ function parseQr(text) {
 }
 
 // Formulär
+// Positioner från Karttjänst (state.kart). Två roller: 'vi' = egen position (FORS F), 'mal' = observerad plats (7S Ställe).
+// Fält märks med pos i FORMS. Ordning i chipsen och förvalet: förenklad relativ, sedan MGRS, sedan relativ i streck.
+const POS_ORDER = ['upk_ord', 'mig_ord', 'abs', 'upk', 'mig'];
+const KART_MAX_AGE = 12 * 3600e3;
+function posVariants(p, pre) {
+  const all = { abs: p.get(pre), upk: p.get(pre + '_upk'), mig: p.get(pre + '_mig'), upk_ord: p.get(pre + '_upk_ord'), mig_ord: p.get(pre + '_mig_ord') };
+  return Object.fromEntries(Object.entries(all).filter(([, t]) => (t || '').trim()));
+}
+// Byter positionstexten i fältet. Har fältet redan text utan positionen läggs den till först.
+function setPosText(d, k, txt) {
+  const old = d['__pt' + k]; const cur = d[k] || '';
+  if (!cur.trim()) d[k] = txt;
+  else if (old && cur.includes(old)) d[k] = cur.replace(old, txt);
+  else d[k] = txt + '. ' + cur;
+  d['__pt' + k] = txt;
+}
+// Förifyllning: ord-varianten om den finns, annars den absoluta. Görs en gång per länk och skriver aldrig över text.
+function applyKart(fm, d) {
+  const kart = state.kart; if (!kart || d.__posTs === kart.ts) return;
+  d.__posTs = kart.ts;
+  fm.fields.forEach((f, i) => {
+    const v = f.pos && kart[f.pos]; const k = 'f' + i;
+    if (!v || (d[k] || '').trim()) return;
+    const first = POS_ORDER.find(key => v[key]);
+    if (first) { d[k] = v[first]; d['__pt' + k] = v[first]; }
+  });
+  saveDrafts();
+}
+function posChips(f, i, d) {
+  const k = 'f' + i; const v = state.kart[f.pos];
+  return `<div class="chips postchips" role="group" aria-label="Position från kartan">${POS_ORDER.filter(key => v[key]).map(key =>
+    `<button data-kpos="${f.pos}" data-kkey="${key}" aria-pressed="${v[key] === d['__pt' + k]}">${esc(v[key])}</button>`).join('')}</div>`;
+}
+
 function renderForm() {
   const fm = form(); const d = draft(fm.id);
   let h = `<div class="formhead"><h2>${esc(fm.title)}</h2>`;
   if (d.__example) h += `<span class="pill example">Exempel</span><button class="linkbtn" data-act="clear-example">Töm exemplet</button>`;
   h += `<p>${esc(fm.desc)}</p></div>`;
+  applyKart(fm, d);
+  if (state.kart) h += `<p class="hint">Positioner från kartan kl ${clock(new Date(state.kart.ts))} · <button class="linkbtn" data-act="kart-clear">Rensa</button></p>`;
+  if (isReport(fm)) {
+    const to = recvFor(fm, d);
+    h += `<div class="chips tochips" role="group" aria-label="Mottagare"><span class="hint">Till</span>${[...new Set([...state.recv, to])].map(c =>
+      `<button data-to="${esc(c)}" aria-pressed="${c === to}">${esc(c)}${c === state.to ? ' chef' : ''}</button>`).join('')}</div>`;
+  }
   fm.fields.forEach((f, i) => {
     const k = 'f' + i;
     h += `<div class="field"><div class="letter${f.small ? ' small' : ''}" aria-hidden="true">${esc(f.key)}</div><div class="fbody">
@@ -661,7 +730,8 @@ function renderForm() {
     } else {
       h += `<textarea id="${fm.id}-${k}" data-k="${k}">${esc(d[k] || '')}</textarea>`;
     }
-    if (f.chips) h += `<div class="chips">${f.chips.map(c => `<button data-chip="${esc(c)}" data-k="${k + (f.chipsTo || '')}">${esc(chipLabel(c))}</button>`).join('')}</div>`;
+    if (f.pos && state.kart?.[f.pos]) h += posChips(f, i, d);
+    if (f.chips) h +=`<div class="chips">${f.chips.map(c => `<button data-chip="${esc(c)}" data-k="${k + (f.chipsTo || '')}">${esc(chipLabel(c))}</button>`).join('')}</div>`;
     h += `</div></div>`;
   });
   $('main').innerHTML = h;
@@ -694,7 +764,7 @@ function addToLog(sent) {
   const fm = form(); const d = draft(fm.id);
   const preview = fm.fields.map((f, i) => fieldText(f, i, d)).filter(Boolean).join(' · ');
   if (!preview) { toast('Rapporten är tom.'); return false; }
-  state.history.unshift({ id: Date.now().toString(36), form: fm.id, ts: Date.now(), me: state.me, to: state.to, sent, values: JSON.parse(JSON.stringify(d)), preview });
+  state.history.unshift({ id: Date.now().toString(36), form: fm.id, ts: Date.now(), me: state.me, to: recvFor(fm, d), sent, values: JSON.parse(JSON.stringify(d)), preview });
   state.history = state.history.slice(0, LOG_MAX);
   store.set('history', state.history);
   return true;
@@ -739,11 +809,15 @@ function importLog(text) {
 // Händelser
 document.addEventListener('input', e => {
   const t = e.target; const fm = form();
-  if (t.id === 'setMe' || t.id === 'setTo') {
-    const v = t.value.trim().toUpperCase();
-    state[t.id === 'setMe' ? 'me' : 'to'] = v || (t.id === 'setMe' ? 'EA' : 'AN');
-    store.set('me', state.me); store.set('to', state.to);
-    $('callsBtn').textContent = `${state.me} → ${state.to}`;
+  if (t.id === 'setMine' || t.id === 'setRecv') {
+    // Den aktiva signalen och chefen följer med om de finns kvar, annars blir det den första i listan.
+    const mine = t.id === 'setMine'; const list = callList(t.value);
+    const def = mine ? ['EA'] : ['AN'];
+    state[mine ? 'mine' : 'recv'] = list.length ? list : def;
+    const cur = mine ? 'me' : 'to';
+    if (!state[mine ? 'mine' : 'recv'].includes(state[cur])) state[cur] = state[mine ? 'mine' : 'recv'][0];
+    store.set('mine', state.mine); store.set('recv', state.recv); store.set('me', state.me); store.set('to', state.to);
+    renderCalls(); if (fm) renderForm();
     return;
   }
   if (!fm) return;
@@ -758,9 +832,18 @@ document.addEventListener('click', e => {
   if (b.dataset.tab) { state.tab = b.dataset.tab; store.set('tab', state.tab); render(); window.scrollTo(0, 0); return; }
   if (b.id === 'callsBtn') { const s = $('settings'); s.hidden = !s.hidden; b.setAttribute('aria-expanded', !s.hidden); return; }
   if (b.id === 'nightBtn') { state.night = !state.night; store.set('night', state.night); renderTop(); return; }
+  if (b.id === 'scanBtn') { openScan(); return; }
+  if (b.dataset.me) { state.me = b.dataset.me; store.set('me', state.me); render(); return; }
+  if (b.dataset.chef) { state.to = b.dataset.chef; store.set('to', state.to); render(); return; }
+  if (b.dataset.to !== undefined) { if (b.dataset.to === state.to) delete d.__to; else d.__to = b.dataset.to; saveDrafts(); renderForm(); return; }
   if (b.dataset.act === 'export') { exportLog(); return; }
   if (b.dataset.act === 'import') { $('importFile').value = ''; $('importFile').click(); return; }
   if (b.dataset.act === 'clear-example') { state.drafts[fm.id] = {}; saveDrafts(); renderForm(); return; }
+  if (b.dataset.kkey !== undefined) {
+    const k = 'f' + fm.fields.findIndex(f => f.pos === b.dataset.kpos);
+    setPosText(d, k, state.kart[b.dataset.kpos][b.dataset.kkey]); touch(fm, k); renderForm(); return;
+  }
+  if (b.dataset.act === 'kart-clear') { state.kart = null; store.set('kart', null); render(); return; }
   if (b.dataset.chip !== undefined) {
     const k = b.dataset.k; let c = fillChip(b.dataset.chip);
     let cur = (d[k] || '').replace(/\s+$/, ''); const trailing = /\s$/.test(d[k] || '');
@@ -880,7 +963,7 @@ function renderShow() {
   let h;
   if (s.qr) {
     const text = showText(); const svg = qrSvg(text);
-    h = svg ? `<div class="qrbox">${svg}</div><p class="qrnote">${[...text].length} tecken. Skanna med Rapportblock (Logg → Läs QR) eller telefonens kamera.</p>`
+    h = svg ? `<div class="qrbox">${svg}</div><p class="qrnote">${[...text].length} tecken. Skanna med Rapportblock (Läs QR) eller telefonens kamera.</p>`
             : `<p class="warn">För lång för en QR-kod (${[...text].length} tecken). Korta texten eller dela upp rapporten.</p>`;
   } else if (s.raw !== undefined) {
     h = `<pre class="raw">${esc(s.raw)}</pre>`;
@@ -895,7 +978,7 @@ function renderShow() {
 $('showBtn').addEventListener('click', () => {
   const fm = form(); const d = draft(fm.id);
   if (!fieldRows(fm, d).length) { toast('Rapporten är tom.'); return; }
-  openShow({ fm, d, w: nowWho(), own: true });
+  openShow({ fm, d, w: nowWho(fm, d), own: true });
 });
 $('showMode').addEventListener('click', () => { show.qr = !show.qr; renderShow(); });
 $('sClose').addEventListener('click', closeShow);
@@ -979,6 +1062,25 @@ function received(text) {
   state.tab = 'Logg'; store.set('tab', state.tab); render();
   openShow({ fm: p.fm, d: p.values, w });
 }
+
+// Kartlänk från Karttjänst: #karta=1&vi=…&mal=… (alla fält valfria). Tas emot vid laddning och vid ny hash.
+// Hashen rensas direkt, så den varken ligger kvar i historiken eller läses in igen. Positionerna ligger kvar tills nästa länk, rensas med knappen, eller efter 12 timmar.
+function takeKarta() {
+  if (state.kart && Date.now() - state.kart.ts > KART_MAX_AGE) { state.kart = null; store.set('kart', null); }
+  const h = location.hash.slice(1);
+  if (!h) return false;
+  const p = new URLSearchParams(h);
+  if (!p.has('karta')) return false;
+  if (p.get('karta') !== '1') { toast('Okänd version av kartlänken.'); return false; }
+  history.replaceState(null, '', location.pathname + location.search);
+  const vi = posVariants(p, 'vi'), mal = posVariants(p, 'mal');
+  if (!Object.keys(vi).length && !Object.keys(mal).length) { toast('Kartlänken innehöll ingen position.'); return true; }
+  state.kart = { ts: Date.now(), vi, mal }; store.set('kart', state.kart);
+  toast('Positioner från kartan mottagna. Välj blankett.');
+  return true;
+}
+takeKarta();
+window.addEventListener('hashchange', () => { if (takeKarta()) render(); });
 
 // Offline: service worker när sidan ligger på en egen webbplats (GitHub Pages eller lokalt).
 if ('serviceWorker' in navigator && HOSTED) {
