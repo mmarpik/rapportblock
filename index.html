@@ -393,18 +393,23 @@ const FORMS = [
     ],
   },
   {
-    id: 'PLOBO', title: 'Ta emot OBO', group: 'instruktion', desc: 'Plutonchefens OBO, som du tar emot. Skapa grupp-OBO fyller OBO-formuläret, som du sedan redigerar.',
+    id: 'FEM', title: '5-punkt', group: 'instruktion', desc: 'Pluton- eller kompaniorder. Alla fält får vara tomma. Roller skrivs med prefix, till exempel "Stf: …".',
     labels: true,
     fields: [
-      { key: 'K', label: 'Kompaniets uppgift', say: 'Kompaniets uppgift', hint: 'Valfri. Lämnas tom om den inte finns.' },
-      { key: 'P', label: 'Plutonens uppgift', say: 'Plutonens uppgift', hint: 'Plutonens uppgift och syfte.' },
-      { key: 'T', small: true, label: 'Tidgivning och terräng', say: 'Tid och terräng', hint: 'Jämför klockor. Peka ut terrängen.' },
-      { key: '1', label: 'Orientering', say: 'Orientering', hint: 'Motståndaren, civila, sidoförband, understöd, terräng, sikt.' },
-      { key: '3', label: 'Beslut', say: 'Beslut', hint: 'Plutonens genomförandeidé.' },
-      { key: 'O', label: 'Order', say: 'Order', hint: 'En rad per grupp: "1:a grupp: …", "2:a grupp: …" och "Alla: …".',
-        chips: ['1:a grupp: ', '2:a grupp: ', 'Alla: '] },
-      { key: '4', label: 'Uthållighet', say: 'Uthållighet', hint: 'Ammunition, sjukvård, samlingsplats för skadade, ÅSA.' },
-      { key: '5', label: 'Ledning', say: 'Ledning', hint: 'Var du är, vem som ersätter dig, samband.' },
+      { key: 'E', small: true, label: 'Enhetens bokstav', say: 'Enhetens bokstav', hint: 'Enhetens egen bokstav, till exempel A för pluton A.' },
+      { key: 'N', small: true, label: 'Två nivåer upp', say: 'Två nivåer upp', hint: 'Bokstaven för enheten två nivåer upp, till exempel AN.' },
+      { key: 'U', small: true, label: 'Enheter under', say: 'Enheter under', hint: 'Bokstäverna för enheterna under, till exempel EFGH. Tomt om inga finns.' },
+      { key: '1', label: 'Orientering', say: 'Orientering', hint: 'Motståndaren, civila, egna förband, terräng, väder och sikt, stridsindelning, chefens värdering.' },
+      { key: '2', label: 'Uppdrag', say: 'Uppdrag', hint: 'Vad som ska åstadkommas, var, när och i vilket syfte.' },
+      { key: '3', label: 'Beslut i stort', say: 'Beslut i stort', hint: 'Målbild och genomförandeidé. Beslut i futurum.' },
+      { key: 'R', label: 'Riktlinjer', say: 'Riktlinjer', hint: 'Gäller hela enheten.' },
+      { key: 'I', label: 'Indelning, gruppering och uppgifter', say: 'Uppgifter', type: 'rows', init: [],
+        hint: 'En rad per uppgift. Till: bokstäverna för mottagaren, tomt för enheten själv, "Alla" för alla. Roll: till exempel Stf.',
+        cols: [{ f: 'm', label: 'Till', w: '0.8fr' }, { f: 'r', label: 'Roll', w: '1fr' }, { f: 'u', label: 'Uppgift', w: '2fr' }],
+        fmt: r => [r.m, r.r ? r.r + ':' : '', r.u].filter(Boolean).join(' ') },
+      { key: 'O', label: 'Samordning och insatsregler', say: 'Samordning', hint: 'Samordning, insatsregler, gränser.' },
+      { key: '4', label: 'Logistik', say: 'Logistik', hint: 'Materiel, ammunition, förplägnad, sjukvård och underhåll.' },
+      { key: '5', label: 'Ledning', say: 'Ledning', hint: 'Var chefen är, vem som övertar ledningen, samband och rapportering.' },
     ],
   },
   {
@@ -694,46 +699,50 @@ function parseQr(text) {
   return { fm, values, tnr: m[2], me: m[3], to: m[4] || '' };
 }
 
-// Ta emot OBO → grupp-OBO. Plutonens rader "1:a grupp: …", "2:a grupp: …" och "Alla: …" delas upp här.
-function orderLines(text) {
-  const out = {}; let cur = null;
-  for (const line of (text || '').replace(/\r/g, '').split('\n')) {
-    const m = /^\s*(?:(\d+):a grupp|(Alla))\s*:\s*(.*)$/i.exec(line);
-    if (m) { cur = m[2] ? 'alla' : Number(m[1]); out[cur] = m[3].trim(); }
-    else if (cur !== null && line.trim()) out[cur] = (out[cur] + ' ' + line.trim()).trim();
-  }
-  return out;
+// Har utkastet något ifyllt? Används före allt som skriver över ett utkast.
+function hasDraft(d) {
+  if (d.__example) return false;
+  const filled = x => typeof x === 'string' ? x.trim() !== '' : typeof x === 'number' ? x > 0 : false;
+  return Object.entries(d).some(([k, v]) => {
+    if (!/^f\d/.test(k)) return false;
+    if (Array.isArray(v)) return v.some(r => r && Object.values(r).some(filled));
+    return filled(v);
+  });
 }
-// Fyller OBO-utkastet från plutonens OBO. Egen grupp = första bokstaven i signalen (FA → F = grupp 2).
+// Två klick: första klicket byter texten på knappen, andra utför.
+function armBtn(b, armedText, text) {
+  b.dataset.armed = '1'; b.textContent = armedText;
+  setTimeout(() => { if (b.isConnected) { delete b.dataset.armed; b.textContent = text; } }, 3000);
+}
+
+// 5-punkt → OBO för en mottagare. Mottagaren är egen grupp om inget annat valts (FA → F).
+// Rader i IGU med mottagarens bokstav i Till blir OBO:s Uppgift, rader med Alla blir Order.
 // Skriver aldrig över en ifylld OBO utan bekräftelse (andra klicket). Redigerbart efteråt.
 function makeGroupObo(b, d) {
-  const n = 'EFGHIJKLM'.indexOf((state.me || '').charAt(0).toUpperCase()) + 1;
-  if (!n) { toast('Signalen måste börja med grupp-bokstav E–M, till exempel FA.'); return; }
+  const to = ((d.__grpto ?? state.me?.charAt(0)) || '').trim().toUpperCase();
+  if (!to) { toast('Ange mottagarens bokstav, till exempel F.'); return; }
   const ob = draft('OBO');
-  const filled = Object.keys(ob).some(k => /^f\d+$/.test(k) && (ob[k] || '').trim());
-  if (filled && !b.dataset.armed) {
-    b.dataset.armed = '1'; b.textContent = 'Skriv över OBO?';
-    setTimeout(() => { if (b.isConnected) { delete b.dataset.armed; b.textContent = 'Skapa grupp-OBO'; } }, 3000);
-    return;
-  }
-  // Fältindex: Ta emot OBO 0 K, 1 P, 2 T, 3 Orientering, 4 Beslut, 5 Order, 6 Uthållighet, 7 Ledning.
+  if (hasDraft(ob) && !b.dataset.armed) { armBtn(b, 'Skriv över OBO?', 'Skapa OBO för mottagaren'); return; }
+  // Fältindex 5-punkt: 0 Enhet, 1 Två nivåer upp, 2 Enheter under, 3 Orientering, 4 Uppdrag, 5 Beslut i stort,
+  // 6 Riktlinjer, 7 IGU (rader), 8 Samordning, 9 Logistik, 10 Ledning.
   const v = i => (d['f' + i] || '').trim();
-  const lines = orderLines(v(5));
-  const own = lines[n] || '';
-  if (!own) toast(`Ingen rad för ${n}:a grupp i ordern. Uppgiften lämnas tom.`);
+  const rows = Array.isArray(d.f7) ? d.f7 : [];
+  const txt = r => [r.r ? r.r + ': ' : '', r.u || ''].join('').trim();
+  const mine = rows.filter(r => (r.m || '').toUpperCase().includes(to) && txt(r));
+  const alla = rows.filter(r => (r.m || '').trim().toLowerCase() === 'alla' && txt(r));
+  if (!mine.length) toast(`Inga rader är adresserade till ${to}. Uppgiften lämnas tom.`);
   // OBO-fält: 0 T, 1 Orientering, 2 Uppgift, 3 Beslut, 4 Order, 5 Uthållighet, 6 Ledning.
   state.drafts.OBO = {
-    f0: v(2),
-    f1: [sentence(v(0)), sentence(v(1)), sentence(v(3))].filter(Boolean).join(' '),
-    f2: sentence(own),
-    f3: v(4),
-    f4: sentence(lines.alla || ''),
-    f5: v(6),
-    f6: v(7),
+    f1: [sentence(v(3)), v(4) ? sentence('Uppdrag: ' + v(4)) : ''].filter(Boolean).join(' '),
+    f2: mine.map(r => sentence(txt(r))).join(' '),
+    f3: [sentence(v(5)), sentence(v(6))].filter(Boolean).join(' '),
+    f4: [sentence(v(8)), ...alla.map(r => sentence(txt(r)))].filter(Boolean).join(' '),
+    f5: sentence(v(9)),
+    f6: sentence(v(10)),
   };
   saveDrafts();
   state.tab = 'OBO'; store.set('tab', state.tab); render(); window.scrollTo(0, 0);
-  toast(`Grupp-OBO skapad för ${n}:a grupp. Granska och redigera.`);
+  toast(`OBO skapad för ${to}. Granska och redigera.`);
 }
 
 // Formulär
@@ -808,7 +817,7 @@ function renderForm() {
   let h = `<div class="formhead"><h2>${esc(fm.title)}</h2>`;
   if (d.__example) h += `<span class="pill example">Exempel</span><button class="linkbtn" data-act="clear-example">Töm exemplet</button>`;
   h += `<p>${esc(fm.desc)}</p></div>`;
-  if (fm.id === 'PLOBO') h += `<p><button class="btn primary" data-act="make-grp-obo">Skapa grupp-OBO</button></p>`;
+  if (fm.id === 'FEM') h += `<p><label>Mottagare <input id="grpTo" value="${esc(d.__grpto ?? (state.me || '').charAt(0))}" maxlength="4" size="5"></label> <button class="btn primary" data-act="make-grp-obo">Skapa OBO för mottagaren</button></p>`;
   applyKart(fm, d);
   // Utgångsvärde (prefill) en gång per formulär. Skriver aldrig över text, och tömt fält fylls inte på igen.
   fm.fields.forEach((f, i) => {
@@ -873,7 +882,7 @@ function renderLog() {
     <p class="hint">${items.length} av högst ${LOG_MAX} rapporter. Läs QR tar emot en rapport från en annan telefon. Import lägger till nya och hoppar över dem som redan finns.</p></div>` +
     (items.length ? `<ul class="hist">${items.map(e => { const fm = FORMS.find(f => f.id === e.form); return `<li>
       <div class="meta">${esc(fm?.title || e.form)} · ${e.rx ? 'från ' : ''}${esc(e.me)}${fm?.group === 'rapport' && e.to ? ' → ' + esc(e.to) : ''} · ${new Date(e.ts).toLocaleString('sv-SE', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}${e.rx ? ' · mottagen' : e.sent ? ' · sänd' : ''}</div>
-      <div class="hbtns"><button data-show="${esc(e.id)}">Visa</button><button data-open="${esc(e.id)}">Öppna</button><button class="danger" data-del="${esc(e.id)}">Radera</button></div>
+      <div class="hbtns"><button data-show="${esc(e.id)}">Visa</button><button data-open="${esc(e.id)}">Öppna</button>${e.form === 'FEM' ? `<button data-grpobo="${esc(e.id)}">Skapa OBO</button>` : ''}<button class="danger" data-del="${esc(e.id)}">Radera</button></div>
       <div class="prev">${esc(e.preview)}</div></li>`; }).join('')}</ul>`
       : `<p class="empty">Inget sparat än. Tryck Spara eller Kopiera på en rapport så hamnar den här.</p>`);
 }
@@ -1025,9 +1034,14 @@ document.addEventListener('click', e => {
     if (!f2) { toast('Formuläret finns inte i den här versionen.'); return; }
     openShow({ fm: f2, d: e2.values, w: { me: e2.me, to: e2.to, ts: e2.ts } }); return;
   }
+  if (b.dataset.grpobo) {
+    const e2 = state.history.find(x => x.id === b.dataset.grpobo); if (!e2) return;
+    makeGroupObo(b, e2.values); return;
+  }
   if (b.dataset.open) {
     const e2 = state.history.find(x => x.id === b.dataset.open); if (!e2) return;
     if (!FORMS.some(f => f.id === e2.form)) { toast('Formuläret finns inte i den här versionen.'); return; }
+    if (hasDraft(draft(e2.form)) && !b.dataset.armed) { armBtn(b, 'Skriv över utkast?', 'Öppna'); return; }
     state.drafts[e2.form] = JSON.parse(JSON.stringify(e2.values)); saveDrafts();
     state.tab = e2.form; store.set('tab', state.tab); render(); toast('Öppnad som nytt utkast.'); return;
   }
@@ -1036,6 +1050,12 @@ document.addEventListener('click', e => {
     else { b.dataset.armed = '1'; b.textContent = 'Säker?'; setTimeout(() => { if (b.isConnected) { delete b.dataset.armed; b.textContent = 'Radera'; } }, 3000); }
     return;
   }
+});
+// Mottagaren för 5-punkt → OBO. Tomt fält betyder egen grupp.
+document.addEventListener('input', e => {
+  if (e.target.id !== 'grpTo') return;
+  draft('FEM').__grpto = e.target.value.trim();
+  saveDrafts();
 });
 document.addEventListener('change', e => {
   if (e.target.id !== 'moreSel' || !e.target.value) return;
