@@ -403,10 +403,8 @@ const FORMS = [
       { key: '2', label: 'Uppdrag', say: 'Uppdrag', hint: 'Vad som ska åstadkommas, var, när och i vilket syfte.' },
       { key: '3', label: 'Beslut i stort', say: 'Beslut i stort', hint: 'Målbild och genomförandeidé. Beslut i futurum.' },
       { key: 'R', label: 'Riktlinjer', say: 'Riktlinjer', hint: 'Gäller hela enheten.' },
-      { key: 'I', label: 'Indelning, gruppering och uppgifter', say: 'Uppgifter', type: 'rows', init: [],
-        hint: 'En rad per uppgift. Till: bokstäverna för mottagaren, tomt för enheten själv, "Alla" för alla. Roll: till exempel Stf.',
-        cols: [{ f: 'm', label: 'Till', w: '0.8fr' }, { f: 'r', label: 'Roll', w: '1fr' }, { f: 'u', label: 'Uppgift', w: '2fr' }],
-        fmt: r => [r.m, r.r ? r.r + ':' : '', r.u].filter(Boolean).join(' ') },
+      { key: 'I', label: 'Uppgifter per grupp', say: 'Uppgifter', type: 'groups',
+        hint: 'En block per grupp under enheten, av fältet Enheter under. Alla för gemensamma uppgifter. Roll till exempel Stf.' },
       { key: 'O', label: 'Samordning och insatsregler', say: 'Samordning', hint: 'Samordning, insatsregler, gränser.' },
       { key: '4', label: 'Logistik', say: 'Logistik', hint: 'Materiel, ammunition, förplägnad, sjukvård och underhåll.' },
       { key: '5', label: 'Ledning', say: 'Ledning', hint: 'Var chefen är, vem som övertar ledningen, samband och rapportering.' },
@@ -651,6 +649,11 @@ function fieldText(f, i, d) {
     if (extra) parts.push(extra);
     return parts.length ? parts.join('. ') : (f.empty || '');
   }
+  if (f.type === 'groups') {
+    const g = groupData(d);
+    return [...groupLetters(d.f2), 'ALLA'].map(L => [g[L]?.r ? g[L].r + ': ' : '', g[L]?.u || ''].join('').trim()
+      ? `${L === 'ALLA' ? 'Alla' : 'Grupp ' + L}: ${[g[L]?.r ? g[L].r + ': ' : '', g[L]?.u || ''].join('').trim()}` : '').filter(Boolean).join('. ');
+  }
   if (f.type === 'color') {
     const c = COLORS[d[k]]; const lim = (d[k + 'lim'] || '').trim();
     return [c, lim].filter(Boolean).join(', ');
@@ -706,6 +709,7 @@ function hasDraft(d) {
   return Object.entries(d).some(([k, v]) => {
     if (!/^f\d/.test(k)) return false;
     if (Array.isArray(v)) return v.some(r => r && Object.values(r).some(filled));
+    if (v && typeof v === 'object') return Object.values(v).some(x => x && Object.values(x).some(filled));
     return filled(v);
   });
 }
@@ -715,6 +719,23 @@ function armBtn(b, armedText, text) {
   setTimeout(() => { if (b.isConnected) { delete b.dataset.armed; b.textContent = text; } }, 3000);
 }
 
+// Strykhjälp i OBO: ett fält med flera stycken (rader) visar dem som en lista med kryss.
+// Fältet är fortfarande fri text. Senaste strykningen kan ångras en kort stund (state.undo).
+function paraList(k, text) {
+  const ls = (text || '').split('\n').map((t, j) => ({ t: t.trim(), j })).filter(x => x.t);
+  const undo = state.undo && state.undo.form === state.tab && state.undo.k === k ? `<button class="linkbtn" data-pundo="${k}">Ångra strykning</button>` : '';
+  const list = ls.length > 1 ? `<div class="hint">Stryk stycke:</div>` + ls.map(x =>
+    `<div style="display:flex;gap:6px;align-items:flex-start;margin:2px 0"><button class="del" style="min-width:36px;height:36px;flex:none" data-pdel="${k}" data-j="${x.j}" aria-label="Stryk stycket">×</button><span class="hint" style="align-self:center">${esc(x.t)}</span></div>`).join('') : '';
+  return list + undo;
+}
+function refreshParaList(k) {
+  const pl = document.querySelector(`[data-plist="${k}"]`);
+  if (pl) pl.innerHTML = paraList(k, draft(state.tab)[k]);
+}
+// Grupperna under enheten, av fältet Enheter under (till exempel EFGH). Dubletter och tecken utanför A–Ö tas bort.
+const groupLetters = s => [...new Set((s || '').toUpperCase().replace(/[^A-ZÅÄÖ]/g, '').split(''))];
+// Grupp-blocken lagras som { E: {r, u}, F: {r, u}, ALLA: {r, u} }. Gammalt format (lista) ignoreras.
+const groupData = d => (d.f7 && typeof d.f7 === 'object' && !Array.isArray(d.f7)) ? d.f7 : {};
 // 5-punkt → OBO för en mottagare. Mottagaren är egen grupp om inget annat valts (FA → F).
 // Rader i IGU med mottagarens bokstav i Till blir OBO:s Uppgift, rader med Alla blir Order.
 // Skriver aldrig över en ifylld OBO utan bekräftelse (andra klicket). Redigerbart efteråt.
@@ -726,23 +747,28 @@ function makeGroupObo(b, d) {
   // Fältindex 5-punkt: 0 Enhet, 1 Två nivåer upp, 2 Enheter under, 3 Orientering, 4 Uppdrag, 5 Beslut i stort,
   // 6 Riktlinjer, 7 IGU (rader), 8 Samordning, 9 Logistik, 10 Ledning.
   const v = i => (d['f' + i] || '').trim();
-  const rows = Array.isArray(d.f7) ? d.f7 : [];
-  const txt = r => [r.r ? r.r + ': ' : '', r.u || ''].join('').trim();
-  const mine = rows.filter(r => (r.m || '').toUpperCase().includes(to) && txt(r));
-  const alla = rows.filter(r => (r.m || '').trim().toLowerCase() === 'alla' && txt(r));
-  if (!mine.length) toast(`Inga rader är adresserade till ${to}. Uppgiften lämnas tom.`);
+  const g = groupData(d);
+  const txt = x => [x?.r ? x.r + ': ' : '', x?.u || ''].join('').trim();
+  const mine = txt(g[to]);
+  const alla = txt(g.ALLA);
+  // Överföring enligt PlutC:s översättningsbild. Strikt: IGU-raden för mottagaren → Vår uppgift (Grp),
+  // Insatsregler → Insatsregler under Order. Bruten: Orientering, Beslut (MB, GFI, RIL), Uthållighet, Ledning.
+  // Vid tvekan förs texten över: plutonens uppgift och de andra gruppernas uppgifter hamnar i Orientering.
+  // Varje del blir ett eget stycke (egen rad), så att det överflödiga kan strykas med ett tryck i OBO.
   // OBO-fält: 0 T, 1 Orientering, 2 Uppgift, 3 Beslut, 4 Order, 5 Uthållighet, 6 Ledning.
+  const paras = (...parts) => parts.flatMap(s => (s || '').split('\n')).map(s => sentence(s)).filter(Boolean).join('\n');
+  const others = groupLetters(d.f2).filter(L => L !== to && txt(g[L])).map(L => `Grupp ${L}: ${txt(g[L])}`);
   state.drafts.OBO = {
-    f1: [sentence(v(3)), v(4) ? sentence('Uppdrag: ' + v(4)) : ''].filter(Boolean).join(' '),
-    f2: mine.map(r => sentence(txt(r))).join(' '),
-    f3: [sentence(v(5)), sentence(v(6))].filter(Boolean).join(' '),
-    f4: [sentence(v(8)), ...alla.map(r => sentence(txt(r)))].filter(Boolean).join(' '),
-    f5: sentence(v(9)),
-    f6: sentence(v(10)),
+    f1: paras(v(3), v(4) ? 'Plutonens uppgift: ' + v(4).replace(/\n/g, ' ') : '', ...others),
+    f2: paras(mine),
+    f3: paras(v(5), v(6)),
+    f4: paras(v(8), alla),
+    f5: paras(v(9)),
+    f6: paras(v(10)),
   };
   saveDrafts();
   state.tab = 'OBO'; store.set('tab', state.tab); render(); window.scrollTo(0, 0);
-  toast(`OBO skapad för ${to}. Granska och redigera.`);
+  toast(`OBO skapad för ${to}. Stryk det överflödiga och redigera.${mine ? '' : ` Ingen uppgift för grupp ${to}.`}`);
 }
 
 // Formulär
@@ -858,6 +884,13 @@ function renderForm() {
         `<div class="chips"><button data-vadd="${k}">+ Rad</button>${f.empty ? `<span class="hint">Tomt = "${esc(f.empty)}"</span>` : ''}</div>`;
       if (f.after) h += `<div class="vrow" style="grid-template-columns:repeat(${f.after.length}, minmax(0, 1fr))">${f.after.map(a =>
         `<label>${esc(a.label)}<input type="number" inputmode="numeric" data-k="${k + a.k}" value="${esc(d[k + a.k] ?? '')}"></label>`).join('')}</div>`;
+    } else if (f.type === 'groups') {
+      const g = groupData(d); const ls = groupLetters(d.f2);
+      if (!ls.length) h += `<p class="hint">Skriv bokstäverna under Enheter under, till exempel EFGH, så visas en block per grupp.</p>`;
+      h += [...ls, 'ALLA'].map(L => `<div class="gblock" style="border-left:3px solid #999;padding-left:8px;margin:8px 0">
+        <div class="hint">${L === 'ALLA' ? 'Alla' : 'Grupp ' + esc(L)}</div>
+        <label>Roll<input type="text" data-gk="${k}" data-gl="${esc(L)}" data-gf="r" value="${esc(g[L]?.r || '')}"></label>
+        <label>Uppgift<textarea data-gk="${k}" data-gl="${esc(L)}" data-gf="u">${esc(g[L]?.u || '')}</textarea></label></div>`).join('');
     } else if (f.type === 'color') {
       h += `<div class="colors" role="group" aria-label="Stridsvärde">${Object.entries(COLORS).map(([c, t]) =>
         `<button data-c="${c}" data-k="${k}" aria-pressed="${d[k] === c}" ${c === 'gront' ? `id="${fm.id}-${k}"` : ''}>${t}</button>`).join('')}</div>
@@ -865,6 +898,7 @@ function renderForm() {
         ${(d[k] === 'gult' || d[k] === 'rott') && !(d[k + 'lim'] || '').trim() ? '<div class="warn">Ange begränsningarna.</div>' : ''}`;
     } else {
       h += `<textarea id="${fm.id}-${k}" data-k="${k}">${esc(d[k] || '')}</textarea>`;
+      if (fm.id === 'OBO') h += `<div data-plist="${k}">${paraList(k, d[k])}</div>`;
     }
     if (f.pos && Object.keys(state.kart?.[f.pos] || {}).length) h += posChips(f, i, d);
     if (f.chips) h +=`<div class="chips">${f.chips.map(c => `<button data-chip="${esc(c)}" data-k="${k + (f.chipsTo || '')}">${esc(chipLabel(c))}</button>`).join('')}</div>`;
@@ -959,8 +993,9 @@ document.addEventListener('input', e => {
   }
   if (!fm) return;
   const d = draft(fm.id);
-  if (t.dataset.k) { d[t.dataset.k] = t.value; touch(fm, t.dataset.k); if (t.dataset.k.endsWith('lim')) { const pos = t.selectionStart; renderForm(); const n = document.querySelector(`[data-k="${t.dataset.k}"]`); n.focus(); n.setSelectionRange(pos, pos); } }
+  if (t.dataset.k) { d[t.dataset.k] = t.value; touch(fm, t.dataset.k); refreshParaList(t.dataset.k); if (t.dataset.k.endsWith('lim')) { const pos = t.selectionStart; renderForm(); const n = document.querySelector(`[data-k="${t.dataset.k}"]`); n.focus(); n.setSelectionRange(pos, pos); } }
   if (t.dataset.v) { d[t.dataset.v][+t.dataset.j][t.dataset.f] = t.value; touch(fm, t.dataset.v); }
+  if (t.dataset.gl) { const g = d[t.dataset.gk] ||= {}; (g[t.dataset.gl] ||= {})[t.dataset.gf] = t.value; touch(fm, t.dataset.gk); }
 });
 
 // Aktiv yta för orderpaden. Markören sparas när man lämnar ytan, så att knappen sätter in ordet rätt.
@@ -988,6 +1023,18 @@ document.addEventListener('click', e => {
   if (b.dataset.act === 'import') { $('importFile').value = ''; $('importFile').click(); return; }
   if (b.dataset.act === 'clear-example') { state.drafts[fm.id] = {}; saveDrafts(); renderForm(); return; }
   if (b.dataset.act === 'make-grp-obo') { makeGroupObo(b, d); return; }
+  if (b.dataset.pdel) {
+    const k = b.dataset.pdel; const ls = (d[k] || '').split('\n');
+    state.undo = { form: fm.id, k, old: d[k] };
+    ls.splice(+b.dataset.j, 1); d[k] = ls.join('\n'); touch(fm, k); renderForm();
+    clearTimeout(state.undoT);
+    state.undoT = setTimeout(() => { state.undo = null; if (state.tab === fm.id) refreshParaList(k); }, 8000);
+    return;
+  }
+  if (b.dataset.pundo) {
+    const u = state.undo; if (!u || u.form !== fm.id) return;
+    d[u.k] = u.old; state.undo = null; touch(fm, u.k); renderForm(); return;
+  }
   if (b.dataset.kkey !== undefined) {
     const k = 'f' + fm.fields.findIndex(f => f.pos === b.dataset.kpos);
     setPosText(d, k, posText(state.kart[b.dataset.kpos][b.dataset.kkey])); touch(fm, k); renderForm(); return;
@@ -1057,7 +1104,9 @@ document.addEventListener('input', e => {
   draft('FEM').__grpto = e.target.value.trim();
   saveDrafts();
 });
+// Ändrade grupp-bokstäver bygger om blocken när fältet lämnas.
 document.addEventListener('change', e => {
+  if (e.target.dataset?.k === 'f2' && form()?.id === 'FEM') { renderForm(); return; }
   if (e.target.id !== 'moreSel' || !e.target.value) return;
   state.tab = e.target.value; store.set('tab', state.tab); render(); window.scrollTo(0, 0);
 });
