@@ -752,7 +752,7 @@ function makeGroupObo(b, d) {
   const mine = txt(g[to]);
   const alla = txt(g.ALLA);
   // Överföring enligt PlutC:s översättningsbild. Strikt: IGU-raden för mottagaren → Vår uppgift (Grp),
-  // Insatsregler → Insatsregler under Order. Bruten: Orientering, Beslut (MB, GFI, RIL), Uthållighet, Ledning.
+  // Insatsregler → Insatsregler under Order. Bruten: Orientering, Riktlinjer (→ Order), Uthållighet, Ledning.
   // Vid tvekan förs texten över: plutonens uppgift och de andra gruppernas uppgifter hamnar i Orientering.
   // Varje del blir ett eget stycke (egen rad), så att det överflödiga kan strykas med ett tryck i OBO.
   // OBO-fält: 0 T, 1 Orientering, 2 Uppgift, 3 Beslut, 4 Order, 5 Uthållighet, 6 Ledning.
@@ -761,8 +761,10 @@ function makeGroupObo(b, d) {
   state.drafts.OBO = {
     f1: paras(v(3), v(4) ? 'Plutonens uppgift: ' + v(4).replace(/\n/g, ' ') : '', ...others),
     f2: paras(mine),
-    f3: paras(v(5), v(6)),
-    f4: paras(v(8), alla),
+    // Hård regel: plutonens beslut (målbild, genomförandeidé) förs aldrig över. Gruppens beslut är alltid ett eget.
+    f3: 'Inledningsvis: \nDärefter: \nSlutligen: ',
+    // Riktlinjerna binder gruppen och hamnar därför under Order, efter insatsregler och samordning.
+    f4: paras(v(8), alla, v(6)),
     f5: paras(v(9)),
     f6: paras(v(10)),
   };

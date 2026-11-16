@@ -1,5 +1,5 @@
 // Offline-cache för Rapportblock. Höj versionen när filerna ändras.
-const CACHE = 'rapportblock-v17';
+const CACHE = 'rapportblock-v18';
 const FILES = ['./', './index.html', './manifest.webmanifest', './icon-192.png', './icon-512.png'];
 
 self.addEventListener('install', e => {
